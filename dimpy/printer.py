@@ -70,7 +70,7 @@ def print_welcome(output=print):
     start_date = now.strftime('%A, %b %d, %Y')
     start_time = now.strftime('%H:%M:%S hrs')
     hostname = socket.gethostname()
-    threads = os.environ['OMP_NUM_THREADS']
+    threads = os.environ.get('OMP_NUM_THREADS')
 
     # print the title of the program
     output('*'*79)
