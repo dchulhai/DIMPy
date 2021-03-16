@@ -28,3 +28,4 @@ from .nanoparticle import Nanoparticle
 from .calc_method import DDA
 from .printer import Output
 from ._version import __version__
+from .analyzer import Analyzer

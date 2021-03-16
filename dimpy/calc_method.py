@@ -131,6 +131,7 @@ class CalcMethod(object):
             convert = conversion[options.freqrange[0]]
             start, stop, num = options.freqrange[1:]
             self.freqs = convert(np.linspace(start, stop, num))
+            self.freqs = np.sort(self.freqs) # sort in order of increasing energy
 
         self.nFreqs = len(self.freqs)
 
@@ -168,6 +169,12 @@ class CalcMethod(object):
 
         # read in all the element parameters
         options = reader.read_input(filename) 
+
+    @property
+    def wavelength_nm(self):
+        '''Returns the frequencies as a wavelength in nm.'''
+        from .constants import HART2NM
+        return HART2NM(self.freqs)
 
     ###########################################################
     # Matrix and Tensor Functions
@@ -436,7 +443,10 @@ class CalcMethod(object):
         # get frequencies in all other units
         au = omega
         eV = HART2EV(omega)
-        nm = HART2NM(omega)
+        if omega > 0:
+            nm = HART2NM(omega)
+        else:
+            nm = float('inf')
         cm = HART2WAVENUM(omega)
         Hz = HART2HZ(omega)
 

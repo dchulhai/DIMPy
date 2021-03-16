@@ -139,7 +139,6 @@ def print_atomic_dipoles(xyz, atoms, mu, output=print):
             muy = mu[i,1].imag
             muz = mu[i,2].imag
             output(f'             {mux:11.5f} {muy:11.5f} {muz:11.5f} (I)')
-
     output('')
 
 def print_energy(energy, output=print):

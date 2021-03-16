@@ -137,10 +137,11 @@ class Nanoparticle(object):
         '''
 
         if filename is None: filename = self.input_filename
+        print (filename)
 
         # first check that file exists
         if not path.isfile(filename):
-            raise DIMPyError(f'File `{self.filename}` does not exist!')
+            raise DIMPyError(f'File `{filename}` does not exist!')
 
         # is this a DIMPy input?
         if path.splitext(filename)[1].lower() in ('.dim', '.inp'):
@@ -577,10 +578,10 @@ class Nanoparticle(object):
 
         # print overview information about nanoparticle
         print_header('Nanoparticle Input', output)
+        output(f'Input file   : {self.input_filename}')
         output(f'# Atoms      : {self.natoms:>7d}')
         output(f'# Atom Types : {n_unique_atoms:>7d}')
-        if self.xyz_filename is not None:
-            output(f'XYZ file     : {self.xyz_filename}')
+        output(f'XYZ file     : {self.xyz_filename}')
         output()
 
         # atomic properties
