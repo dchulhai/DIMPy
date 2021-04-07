@@ -21,7 +21,7 @@ def read_input_file(input_filename):
     # Solver algorithm
     # These algorithms are all found in the `scipy.sparse.linalg` module
     algorithms = ('spsolve', 'spsolve_triangular', 'bicg', 'bicgstab',
-                  'cg', 'cgs', 'gmres', 'lgmres', 'minres', 'qmr')
+                  'cg', 'cgs', 'gmres', 'lgmres', 'minres', 'qmr', 'direct')
     reader.add_line_key('algorithm', type=algorithms, default='spsolve')
 
     reader.add_line_key('niter', type=int, default=0)

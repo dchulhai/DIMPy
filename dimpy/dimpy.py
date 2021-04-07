@@ -93,7 +93,7 @@ def run_from_command_line():
     from os.path import splitext
     from input_reader import abs_file_path
     from argparse import ArgumentParser
-    from dimpy import Nanoparticle, DDA
+    from dimpy import Nanoparticle, DDA, DIM
 
     # Assume that argparse exists and create an argument parser
     parser = ArgumentParser(description="Front-end for the DIMPy code.", prog='DIMPy')
@@ -122,13 +122,20 @@ def run_from_command_line():
     # Perform the actual calculation
     ################################
 
+    # read input file
+    dimpy = DIMPy(input_filename=args.file, output_filename=output_filename)
+    dimpy.read_input()
+
     # read in the nanoparticle data from the file
     nanoparticle = Nanoparticle(args.file, output_filename=output_filename)
 
     # set up a calculations method
-    dda = DDA(nanoparticle)
-
-    dda.run()
+    if dimpy._input_options.dda:
+        dda = DDA(nanoparticle)
+        dda.run()
+    else:
+        dim = DIM(nanoparticle)
+        dim.run()
 
 if __name__ == '__main__':
     try:
