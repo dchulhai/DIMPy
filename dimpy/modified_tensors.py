@@ -97,4 +97,4 @@ class ModifiedTensors(CalcMethod):
 
         return self._t2
 
-DIM = ModifiedTensors
+PIM = ModifiedTensors

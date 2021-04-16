@@ -134,7 +134,7 @@ def run_from_command_line():
         dda = DDA(nanoparticle)
         dda.run()
     else:
-        dim = DIM(nanoparticle)
+        dim = PIM(nanoparticle)
         dim.run()
 
 if __name__ == '__main__':

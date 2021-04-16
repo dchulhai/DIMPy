@@ -26,7 +26,7 @@ ___
 #from .dimclass import DIM, DIMError
 from .nanoparticle import Nanoparticle
 from .calc_method import DDA
-from .modified_tensors import DIM
+from .modified_tensors import PIM
 from .printer import Output
 from ._version import __version__
 from .analyzer import Analyzer
