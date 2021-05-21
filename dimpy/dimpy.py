@@ -93,7 +93,7 @@ def run_from_command_line():
     from os.path import splitext
     from input_reader import abs_file_path
     from argparse import ArgumentParser
-    from dimpy import Nanoparticle, DDA, DIM
+    from dimpy import Nanoparticle, DDA, PIM
 
     # Assume that argparse exists and create an argument parser
     parser = ArgumentParser(description="Front-end for the DIMPy code.", prog='DIMPy')
