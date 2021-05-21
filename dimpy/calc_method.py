@@ -7,7 +7,7 @@ from numpy import linalg
 import scipy as sp
 from scipy.sparse import linalg
 from .printer import print_atomic_dipoles
-from time import time
+from time import perf_counter
 
 class CalcMethod(object):
     '''Calculation base class.
@@ -305,12 +305,12 @@ class CalcMethod(object):
 
         # print iterations and residuals to logfile
         self._iteration = 0
-        self._itertime = time()
+        self._itertime = perf_counter()
         def report(xk):
             self._iteration += 1
             if self._iteration%10 == 0:
-                ellapsed_time = time() - self._itertime
-                self._itertime = time()
+                ellapsed_time = perf_counter() - self._itertime
+                self._itertime = perf_counter()
                 self.log(f'Iter: {self._iteration//10:>4d}, Err: {xk:8.2e},'
                          f' {ellapsed_time:6.3f} s')
 
