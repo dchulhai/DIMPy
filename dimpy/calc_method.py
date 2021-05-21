@@ -7,6 +7,7 @@ from numpy import linalg
 import scipy as sp
 from scipy.sparse import linalg
 from .printer import print_atomic_dipoles
+from time import time
 
 class CalcMethod(object):
     '''Calculation base class.
@@ -199,6 +200,8 @@ class CalcMethod(object):
                      '{0:.3f} seconds'.format(end_time[1]),
                      time=end_time[0])
 
+            self.log('T0 Size (MB): ', self._t0.nbytes / (1024)**2)
+
         return self._t0
 
     @property
@@ -246,6 +249,7 @@ class CalcMethod(object):
                      '{0:.3f} seconds'.format(end_time[1]),
                      time=end_time[0])
 
+            self.log('T2 Size (MB): ', self._t2.nbytes / (1024)**2)
 
         return self._t2
 
@@ -278,9 +282,11 @@ class CalcMethod(object):
                  '{0:.3f} seconds'.format(end_time[1]),
                  time=end_time[0])
 
+        self.log('Amat Size (MB): ', self._A_matrix.nbytes / (1024)**2)
+
         return self._A_matrix
 
-    def solve_one_direction(self, Amat, dimension=0):
+    def solve_one_direction(self, Amat, dimension=0, x0=None):
 
         # get direction from dimension
         if dimension == 0:
@@ -296,12 +302,23 @@ class CalcMethod(object):
                  time=self._timer.startTimer(f'{xyz} direction'))
 
         natoms = self.nanoparticle.natoms
+
+        # print iterations and residuals to logfile
+        self._iteration = 0
+        self._itertime = time()
+        def report(xk):
+            self._iteration += 1
+            if self._iteration%10 == 0:
+                ellapsed_time = time() - self._itertime
+                self._itertime = time()
+                self.log(f'Iter: {self._iteration//10:>4d}, Err: {xk:8.2e},'
+                         f' {ellapsed_time:6.3f} s')
+
         E = np.zeros((natoms, 3), dtype=np.float32)
         E[:, dimension] = 1
         E = E.reshape(natoms * 3)
-#        E = sp.sparse.csr_matrix(E)
-#        mu = sp.sparse.linalg.bicg(A, E)
-        mu = np.linalg.solve(Amat, E)
+#        mu = np.linalg.solve(Amat, E)
+        mu, info = sp.sparse.linalg.gmres(Amat, E, x0=x0, callback=report)
         E = E.reshape(natoms, 3)
         mu = mu.reshape(natoms, 3)
 

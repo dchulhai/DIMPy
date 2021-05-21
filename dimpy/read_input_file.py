@@ -12,13 +12,17 @@ def read_input_file(input_filename):
     reader = InputReader(comment=['!', '#', '::', '//'],
              case=False, ignoreunknown=True)
 
-    # Some general keys
+    #####################
+    # Some general keys #
+    #####################
     reader.add_line_key('title', type=[], glob={'len': '*', 'join': True, },
                         case=True)
     # TODO: debug currently does nothing
     reader.add_boolean_key('debug', action=True, default=False)
 
-    # Solver algorithm
+    ####################
+    # Solver algorithm #
+    ####################
     # These algorithms are all found in the `scipy.sparse.linalg` module
     algorithms = ('spsolve', 'spsolve_triangular', 'bicg', 'bicgstab',
                   'cg', 'cgs', 'gmres', 'lgmres', 'minres', 'qmr', 'direct')
@@ -53,7 +57,9 @@ def read_input_file(input_filename):
                         default=(1.0, 0.5, 1.0))
     reader.add_line_key('scscale', type=float, default=1.0)
 
-    # Printing control
+    ####################
+    # Printing control #
+    ####################
     reader.add_line_key('printlevel', type=(0, 1, 2, 3), default=0)
     reader.add_line_key('print', type=('atmdip', 'coords', 'energy',
                                        'pol', 'timing', 'timingverbose',
@@ -65,6 +71,7 @@ def read_input_file(input_filename):
                                          'input', 'eff'), repeat=True)
 
     # The calculation mode (PIM vs CPIM)
+    # TODO: CPIM not implemented
     mode = reader.add_mutually_exclusive_group(required=True)
     mode.add_boolean_key('cpim', action=True, default=False)
     mode.add_boolean_key('pim', action=True, default=False)
@@ -86,7 +93,9 @@ def read_input_file(input_filename):
                       type=[('ev', 'nm', 'hz', 'cm-1', 'hartree', 'au'),
                             float, float, int])
 
-    # The elemental parameter blocks
+    ##################################
+    # The elemental parameter blocks #
+    ##################################
     unitglob = {'len': '?',
                 'type': ('ev', 'hz', 'cm-1', 'hartree', 'au'),
                 'default': 'hartree'}
@@ -132,6 +141,18 @@ def read_input_file(input_filename):
                        glob=unitglob)
         e.add_line_key('fermi', type=float, default=0.0, depends='drude')
         e.add_line_key('spillout', type=float, default=0.0)
+
+    ################################
+    # Periodic Boundary Conditions #
+    ################################
+    pbc_string = re.compile(r"""
+                             \s*
+                             ((?i)pbc)
+                             (\s+[0-9.]+)
+                             (\s+[0-9.]+)?
+                             (\s+[0-9.]+)?
+                             """, re.VERBOSE)
+    reader.add_regex_line('pbc', pbc_string)
 
     # Read the input and return the options read in
     input_options = reader.read_input(input_filename)

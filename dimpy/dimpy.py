@@ -36,6 +36,9 @@ class DIMPy(object):
         self.out = Output(filename=output_filename)
         self.log = Output(filename=log_filename, logfile=True)
 
+        # debug flag
+        self.debug = True
+
 
     def read_input(self, input_filename=None):
         '''\
@@ -57,7 +60,19 @@ class DIMPy(object):
             raise DIMPyError(f'Input file `{input_filename}` does not exist!')
 
         self._input_options = read_input_file(input_filename)
-        self._timer.endTimer('Prep Input')
+
+        # check for pbc
+        if self._input_options.pbc is not None:
+            pbc = self._input_options.pbc
+            pbc_coords = [0, 0, 0]
+            for ix in range(3):
+                if pbc.groups()[ix+1] is not None:
+                    pbc_coords[ix] = float(pbc.groups()[ix+1]) * 1.88973 # to bohr
+                else:
+                    break
+            self.pbc = pbc_coords
+        else:
+            self.pbc = None
 
 
 class DIMPyError(Exception):
@@ -127,7 +142,8 @@ def run_from_command_line():
     dimpy.read_input()
 
     # read in the nanoparticle data from the file
-    nanoparticle = Nanoparticle(args.file, output_filename=output_filename)
+    nanoparticle = Nanoparticle(args.file, output_filename=output_filename,
+                                pbc=dimpy.pbc)
 
     # set up a calculations method
     if dimpy._input_options.dda:

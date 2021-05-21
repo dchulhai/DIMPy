@@ -32,9 +32,9 @@ class Output(object):
         if self.logfile:
             time = kwargs.pop('time', datetime.now())
             if nospace:
-                print(time.strftime('%c'), *args, **kwargs)
+                print(time.strftime('%c'), *args, file=self.file, **kwargs)
             else:
-                print('', time.strftime('%c'), *args, **kwargs)
+                print('', time.strftime('%c'), *args, file=self.file, **kwargs)
 
         # This is a regular output file
         else: 
@@ -100,7 +100,7 @@ def print_welcome(output=print):
     output()
 
     # print out a warning
-    output('ALL UNITS ARE REPORTED IN ATOMIC'
+    output('ALL VALUES ARE REPORTED IN ATOMIC'
            ' UNITS UNLESS OTHERWISE SPECIFIED'.center(79))
     output()
     

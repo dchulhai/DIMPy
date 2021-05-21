@@ -73,7 +73,7 @@ class Nanoparticle(object):
 
     def __init__(self, atoms_list_or_string, unit='Angstrom',
                  atom_params=None, rcut=100., output_filename=None,
-                 log_filename=None):
+                 log_filename=None, pbc=None):
         '''Initializes the Nanoparticle class.
         '''
 
@@ -116,6 +116,9 @@ class Nanoparticle(object):
         else:
             self._get_atomic_radii_from_dimpy_input()
 
+        # periodic boundary conditions
+        self.pbc = pbc
+
         # Other attributes. These should never have to be set by the user
         self._molecular_mass = None
         self._static_polarizabilities = None
@@ -137,7 +140,6 @@ class Nanoparticle(object):
         '''
 
         if filename is None: filename = self.input_filename
-        print (filename)
 
         # first check that file exists
         if not path.isfile(filename):
@@ -526,6 +528,7 @@ class Nanoparticle(object):
 
             dists = spatial.distance.pdist(self.coordinates)
             self._distances = spatial.distance.squareform(dists)
+            self._distances = np.array(self._distances, dtype=np.float32)
             if self.unit in ('A', 'Ang', 'Angstrom'):
                 self._distances *= 1.8897261328856432
 
