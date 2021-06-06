@@ -1,12 +1,13 @@
+
+import math
 import os
+import time
 
 from input_reader import InputReader
-from math import pi
 import numpy as np
 from numpy import linalg
 import scipy as sp
 from scipy.sparse import linalg
-from time import perf_counter
 
 from .constants import EV2HART, NM2HART, HZ2HART, WAVENUM2HART
 from .constants import ELEMENTS, NOCONV, HART2NM, BOHR2NM
@@ -302,12 +303,12 @@ class CalcMethod(object):
 
         # print iterations and residuals to logfile
         self._iteration = 0
-        self._itertime = perf_counter()
+        self._itertime = time.perf_counter()
         def report(xk):
             self._iteration += 1
             if self._iteration%10 == 0:
-                ellapsed_time = perf_counter() - self._itertime
-                self._itertime = perf_counter()
+                ellapsed_time = time.perf_counter() - self._itertime
+                self._itertime = time.perf_counter()
                 self.log(f'Iter: {self._iteration//10:>4d}, Err: {xk:8.2e},'
                          f' {ellapsed_time:6.3f} s')
 
@@ -345,19 +346,19 @@ class CalcMethod(object):
     def _calc_efficiencies(self, pol, omega):
 
         wavelength  = HART2NM(omega)
-        k           = 2 * pi /wavelength
+        k           = 2 * math.pi /wavelength
         iso         = np.trace(pol) / 3.0
         iso        *= BOHR2NM(1)**3 # convert pol to au^3 to nm^3
         cAbsorb     = k * iso.imag
-        cScatter    = k**4 * np.abs(iso.real**2 + iso.imag**2) / (6 * pi)
+        cScatter    = k**4 * np.abs(iso.real**2 + iso.imag**2) / (6 * math.pi)
         cExtinct    = cAbsorb + cScatter
 
         # calculate the radius of a sphere with equivalent volume
-        effrad      = (( 3.0 / ( 4.0 * pi )) * self.nanoparticle.volume )**(1./3.)
+        effrad      = (( 3.0 / ( 4.0 * math.pi )) * self.nanoparticle.volume )**(1./3.)
         effrad_sq   = effrad * effrad
-        qAbsorb     = cAbsorb / (pi * effrad_sq)
-        qScatter    = cScatter / (pi * effrad_sq)
-        qExtinct    = cExtinct / (pi * effrad_sq)
+        qAbsorb     = cAbsorb / (math.pi * effrad_sq)
+        qScatter    = cScatter / (math.pi * effrad_sq)
+        qExtinct    = cExtinct / (math.pi * effrad_sq)
 
         if self.cAbsorb is None:
             self.cAbsorb  = np.array([cAbsorb])
