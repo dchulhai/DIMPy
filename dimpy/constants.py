@@ -1,4 +1,5 @@
 from math import pi as PI
+import sys
 
 # Physical constants
 ELEM_CHARGE    = 1.602176487E-19 # C
@@ -204,7 +205,6 @@ def atomic_color(element):
     try:
         return color[element]
     except KeyError:
-        import sys
         print('Color for {0} not specified.'.format(element),
               'Defaulted to Light Gray', file=sys.stderr)
         return (0.9, 0.9, 0.9)
@@ -531,12 +531,10 @@ def atomic_number(element):
         try:
             return ELEMENTS[int(element)]
         except IndexError:
-            import sys
             sys.exit('Symbol for element '+str(element)+' is not implemented.')
     # If that didn't work, then it must be the symbol
     except ValueError:
         try:
             return ELEMENTS.index(element)
         except ValueError:
-            import sys
             sys.exit('Element '+element+' is not implemented.')

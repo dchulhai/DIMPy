@@ -22,11 +22,12 @@ ___
 * some paper
 * some other paper
 '''
-#from .run import run
-#from .dimclass import DIM, DIMError
-from .nanoparticle import Nanoparticle
+from .analyzer import Analyzer
 from .calc_method import DDA
+from .dimpy_error import DIMPyError
 from .modified_tensors import PIM
+from .nanoparticle import Nanoparticle
 from .printer import Output
 from ._version import __version__
-from .analyzer import Analyzer
+
+__package__ = 'dimpy'

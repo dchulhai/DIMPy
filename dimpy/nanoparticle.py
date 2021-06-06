@@ -1,12 +1,19 @@
 
+import math
+import os
 import re
-from os import path
-from .dimpy import DIMPyError
+
+import input_reader
 import numpy as np
 import scipy as sp
-from scipy import spatial
+from scipy import interpolate, spatial
+
 from .constants import ELEMENTS, elemset as ELEMSET, atomic_mass, atomic_radius, \
                        ANGSTROM2BOHR, HART2NM, BOHR2NM
+from .dimpy_error import DIMPyError
+from .printer import Output, print_header
+from .timer import Timer
+
 
 class Nanoparticle(object):
     """\
@@ -77,9 +84,6 @@ class Nanoparticle(object):
         '''Initializes the Nanoparticle class.
         '''
 
-        from .timer import Timer
-        from .printer import Output
-
         # create the output and log files
         self.out = Output(filename=output_filename)
         self.log = Output(filename=log_filename, logfile=True)
@@ -99,7 +103,7 @@ class Nanoparticle(object):
 
         # check if input is a string and that it's a filename
         if (isinstance(atoms_list_or_string, str) and
-           (path.splitext(atoms_list_or_string)[1].lower()
+           (os.path.splitext(atoms_list_or_string)[1].lower()
            in ('.dim', '.inp', '.xyz'))):
             self.input_filename = atoms_list_or_string
             self._read_coordinates(atoms_list_or_string)
@@ -142,15 +146,15 @@ class Nanoparticle(object):
         if filename is None: filename = self.input_filename
 
         # first check that file exists
-        if not path.isfile(filename):
+        if not os.path.isfile(filename):
             raise DIMPyError(f'File `{filename}` does not exist!')
 
         # is this a DIMPy input?
-        if path.splitext(filename)[1].lower() in ('.dim', '.inp'):
+        if os.path.splitext(filename)[1].lower() in ('.dim', '.inp'):
             self._read_coordinates_from_dimpy_input(filename)
 
         # is this an XYZ file?
-        if path.splitext(filename)[1].lower() == '.xyz':
+        if os.path.splitext(filename)[1].lower() == '.xyz':
             self._read_coordinates_from_xyz_file(filename)
 
     def _read_coordinates_from_dimpy_input(self, filename=None):
@@ -158,13 +162,11 @@ class Nanoparticle(object):
         Reads the coordinates from a DIMPy input file.
         '''
 
-        from input_reader import InputReader
-
         if filename is None: filename = self.input_filename
 
         # Initializes reader for a DIMPy input
         # Valid comment characters are `::`, `#`, `!`, and `//`
-        reader = InputReader(comment=['!', '#', '::', '//'],
+        reader = input_reader.InputReader(comment=['!', '#', '::', '//'],
                  case=False, ignoreunknown=True)
 
         # Read from the coordinates block of the DIMPy input
@@ -224,14 +226,12 @@ class Nanoparticle(object):
         '''Reads the atom coordinates from an XYZ file.
         '''
 
-        from input_reader import InputReader
-
         if filename is None: filename = self.input_filename
         self.xyz_filename = filename
 
         # Initializes reader for a DIMPy input
         # Valid comment characters are `::`, `#`, `!`, and `//`
-        reader = InputReader(comment=['!', '#', '::', '//'],
+        reader = input_reader.InputReader(comment=['!', '#', '::', '//'],
                  case=False, ignoreunknown=True)
 
         # Read from the coordinates block of the DIMPy input
@@ -338,13 +338,11 @@ class Nanoparticle(object):
 
     def _get_atomic_radii_from_dimpy_input(self, filename=None):
 
-        from input_reader import InputReader
-
         if filename is None: filename = self.input_filename
 
         # Initializes reader for a DIMPy input
         # Valid comment characters are `::`, `#`, `!`, and `//`
-        reader = InputReader(comment=['!', '#', '::', '//'],
+        reader = input_reader.InputReader(comment=['!', '#', '::', '//'],
                  case=False, ignoreunknown=True)
 
         for el in ELEMENTS:  # Elements defined from constants module
@@ -476,16 +474,16 @@ class Nanoparticle(object):
 
     def _read_experimental_dielectric(self, die_file, omega):
 
-        from scipy.interpolate import interp1d
-
         # get the experimental dielectric file and open it
-        abs_file = path.join(path.dirname(path.abspath(__file__)), 
+        abs_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
                              'dielectrics', die_file)
         exp_data = np.loadtxt(abs_file, unpack=True)
 
         # interpolate the data
-        interpolate_real = interp1d(exp_data[0], exp_data[1], kind='cubic')
-        interpolate_imag = interp1d(exp_data[0], exp_data[2], kind='cubic')
+        interpolate_real = sp.interpolate.interp1d(exp_data[0],
+                            exp_data[1], kind='cubic')
+        interpolate_imag = sp.interpolate.interp1d(exp_data[0],
+                            exp_data[2], kind='cubic')
 
         # get new experimental dielectrics
         die_real = interpolate_real(HART2NM(omega))
@@ -543,8 +541,6 @@ class Nanoparticle(object):
     def volume(self):
         '''Get the volume.'''
 
-        from math import pi
-
         if self._volume is None:
             self.log('Caculating Volume',
                      time=self._timer.startTimer('Volume'))
@@ -555,7 +551,7 @@ class Nanoparticle(object):
             rad_cubed = self.atomic_radii * self.atomic_radii * self.atomic_radii
             rad_cubed = rad_cubed.sum()
 
-            self._volume = 4.0 * pi * radmult_cubed * rad_cubed / 3.0
+            self._volume = 4.0 * math.pi * radmult_cubed * rad_cubed / 3.0
             self._volume *= BOHR2NM(1)**3 * ANGSTROM2BOHR(1)**3
 
             end_time = self._timer.endTimer('Volume')
@@ -572,8 +568,6 @@ class Nanoparticle(object):
 
     def _print_nanoparticle(self, output=None):
         '''Prints all relevant information about the nanoparticle.'''
-
-        from .printer import print_header
 
         if output is None: output = self.out
         unique_atoms = np.unique(self.atoms)

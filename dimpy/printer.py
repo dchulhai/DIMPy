@@ -1,8 +1,13 @@
-from ._version import __version__
+
 from datetime import datetime
-import sys
 import os
+import socket
+import sys
+
 import numpy as np
+
+from ._version import __version__
+
 
 class Output(object):
     """Class for riting to a file or stdout. It is called like a function.
@@ -52,8 +57,6 @@ class Output(object):
 
 def print_welcome(output=print):
     """Prints the welcome on top of the output file."""
-
-    import socket
 
     # title and authors
     title = ' D I S C R E T E   I N T E R A C T I O N   M O D E L   F O R'\

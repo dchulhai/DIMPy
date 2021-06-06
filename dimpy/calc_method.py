@@ -1,13 +1,23 @@
+import os
 
-from os import path
 from input_reader import InputReader
-from .dimpy import DIMPyError
+from math import pi
 import numpy as np
 from numpy import linalg
 import scipy as sp
 from scipy.sparse import linalg
-from .printer import print_atomic_dipoles
 from time import perf_counter
+
+from .constants import EV2HART, NM2HART, HZ2HART, WAVENUM2HART
+from .constants import ELEMENTS, NOCONV, HART2NM, BOHR2NM
+from .constants import HART2EV, HART2WAVENUM, HART2HZ
+from .dimpy_error import DIMPyError
+from .printer import Output, print_atomic_dipoles
+from .printer import print_efficiencies
+from .printer import print_welcome, print_energy
+from .printer import print_polarizability
+from .timer import Timer
+
 
 class CalcMethod(object):
     '''Calculation base class.
@@ -26,9 +36,6 @@ class CalcMethod(object):
         :param output_filename: The name of the DIMPy output file (Optional).
         :param log_filename: The name of the DIMPy log file (Optional).
         '''
-
-        from .timer import Timer
-        from .printer import Output
 
         # use the nanoparticle attributes
         self.nanoparticle = nanoparticle
@@ -51,7 +58,7 @@ class CalcMethod(object):
         self.title = title
 
         # check if given input file exists
-        if input_filename is not None and not path.isfile(input_filename):
+        if input_filename is not None and not os.path.isfile(input_filename):
             raise DIMPyError(f'Input file `{input_filename}` does not exist!')
 
         # read frequency
@@ -94,9 +101,6 @@ class CalcMethod(object):
     def _read_frequency(self, filename=None):
         '''Reads the frequency from a DIMPy input file and convert
         to atomic units.'''
-
-        from .constants import EV2HART, NM2HART, HZ2HART, WAVENUM2HART, \
-                               NOCONV, HART2NM
 
         if filename is None: filename = self.input_filename
 
@@ -152,8 +156,6 @@ class CalcMethod(object):
     def _read_element_properties(self, filename=None):
         '''Read in the properties of each element.'''
 
-        from .constants import ELEMENTS
-
         if filename is None: filename = self.input_filename
 
         reader = self._initialize_input_reader()
@@ -174,7 +176,6 @@ class CalcMethod(object):
     @property
     def wavelength_nm(self):
         '''Returns the frequencies as a wavelength in nm.'''
-        from .constants import HART2NM
         return HART2NM(self.freqs)
 
     ###########################################################
@@ -238,11 +239,11 @@ class CalcMethod(object):
             r3_inv = r_inv * r_inv * r_inv
             r5_inv = r3_inv * r_inv * r_inv
 
-            self._t2 = 3 * np.einsum('ij,ijk,ijl->ijkl', r5_inv, r_vec,
+            self._t2 = 3 * np.einsum('ij,ija,ijb->iajb', r5_inv, r_vec,
                                      r_vec, dtype=np.float32, casting='same_kind')
-            self._t2[:,:,0,0] -= r3_inv
-            self._t2[:,:,1,1] -= r3_inv
-            self._t2[:,:,2,2] -= r3_inv
+            self._t2[:,0,:,0] -= r3_inv
+            self._t2[:,1,:,1] -= r3_inv
+            self._t2[:,2,:,2] -= r3_inv
 
             end_time = self._timer.endTimer('T2 Tensor')
             self.log('Finished generating T2 tensor, '
@@ -266,15 +267,11 @@ class CalcMethod(object):
         A_matrix -= self.t2
 
         for i in range(natoms):
-            A_matrix[i,i,:,:] = 0
+            A_matrix[i,:,i,:] = 0
             for a in range(3):
-                A_matrix[i,i,a,a] = pol[i]
+                A_matrix[i,a,i,a] = pol[i]
 
-        temp = np.swapaxes(A_matrix, 1, 2)
-        del(A_matrix)
-        temp2 = temp.reshape(natoms * 3, natoms * 3)
-        del (temp)
-        self._A_matrix = temp2
+        self._A_matrix = A_matrix.reshape(natoms * 3, natoms * 3)
 
         # end the timer
         end_time = self._timer.endTimer('A-matrix')
@@ -333,7 +330,7 @@ class CalcMethod(object):
                  '{0:.3f} seconds'.format(end_time[1]),
                  time=end_time[0])
 
-        return mu
+        return mu.flatten()
 
     def _calc_total_energy(self, dim, mu, E):
         if self.total_energy is None:
@@ -346,9 +343,6 @@ class CalcMethod(object):
         self.polarizability[dim,:] = mu.sum(axis=0)
 
     def _calc_efficiencies(self, pol, omega):
-
-        from .constants import HART2NM, BOHR2NM
-        from math import pi
 
         wavelength  = HART2NM(omega)
         k           = 2 * pi /wavelength
@@ -380,7 +374,6 @@ class CalcMethod(object):
             self.qScatter = np.append(self.qScatter, [qScatter])
             self.qExtinct = np.append(self.qExtinct, [qExtinct])
 
-        from .printer import print_efficiencies
         print_efficiencies(qAbsorb, qScatter, qExtinct, cAbsorb, cScatter,
                            cExtinct, self.out)
 
@@ -395,9 +388,6 @@ class CalcMethod(object):
     def run(self):
         '''Runs the calculation.'''
 
-        from .printer import print_welcome, print_energy, \
-                             print_polarizability
-
         # print header
         print_welcome(self.out)
         self.nanoparticle._print_nanoparticle()
@@ -405,6 +395,10 @@ class CalcMethod(object):
         # generate the interaction tensors
         if self._t2 is None:
             trash = self.t2
+
+        # temporarily hole the atomic dipoles here for
+        # restart when calculating multiple frequencies
+        atomic_dipoles = [None, None, None]
 
         # cycle over each frequency
         for self._iFreq in range(self.nFreqs):
@@ -425,7 +419,8 @@ class CalcMethod(object):
 
             # run each direction
             for ixyz in range(3):
-                self.solve_one_direction(Amat, ixyz)
+                atomic_dipoles[ixyz] = self.solve_one_direction(Amat,
+                    ixyz, x0=atomic_dipoles[ixyz])
 
             # print energy terms
             if omega == 0 or omega is None:
@@ -452,8 +447,6 @@ class CalcMethod(object):
         print_atomic_dipoles(xyz, self.nanoparticle.atoms, mu, self.out)
 
     def _print_freq_header(self, omega):
-
-        from .constants import HART2EV, HART2NM, HART2WAVENUM, HART2HZ
 
         string = '*****  Performing calculation at:  *****'
 

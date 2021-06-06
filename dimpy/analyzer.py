@@ -1,7 +1,10 @@
-from .calc_method import CalcMethod
-from .nanoparticle import Nanoparticle
+import os
+
 import numpy as np
-from .dimpy import DIMPyError
+
+from .calc_method import CalcMethod
+from .dimpy_error import DIMPyError
+from .nanoparticle import Nanoparticle
 from .printer import Output
 
 class Analyzer(CalcMethod):
@@ -13,7 +16,6 @@ class Analyzer(CalcMethod):
         '''Initializes the analyzer object given a filename.
         '''
 
-        import os
 
         # create log file
         self.log = Output(log_filename, logfile=True)

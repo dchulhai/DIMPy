@@ -1,6 +1,8 @@
-from .calc_method import CalcMethod
 import numpy as np
 import scipy as sp
+
+from .calc_method import CalcMethod
+
 
 class ModifiedTensors(CalcMethod):
 

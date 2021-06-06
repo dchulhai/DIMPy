@@ -1,7 +1,18 @@
 #! /usr/bin/env python3
 
+import os
+
+import argparse
+import input_reader
+
+from .dimpy_error import DIMPyError
+from .calc_method import DDA
+from .modified_tensors import PIM
+from .nanoparticle import Nanoparticle
+from .printer import Output
+from .read_input_file import read_input_file
+from .timer import Timer
 from ._version import __version__
-from os import path
 
 class DIMPy(object):
     """\
@@ -17,16 +28,12 @@ class DIMPy(object):
         :param log_filename: The name of the DIMPy log file (Optional).
         '''
 
-        from .timer import Timer
-        from .printer import Output
-        from .nanoparticle import Nanoparticle
-
         self.input_filename = input_filename
         self.output_filename = output_filename
         self.log_filename = log_filename
 
         # check if given input file exists
-        if input_filename is not None and not path.isfile(input_filename):
+        if input_filename is not None and not os.path.isfile(input_filename):
             raise DIMPyError(f'Input file `{input_filename}` does not exist!')
 
         # start a timer, even if you're just reading output data
@@ -47,8 +54,6 @@ class DIMPy(object):
         :param input_filename: The name of the DIMPy input file (Optional).
         '''
 
-        from .read_input_file import read_input_file
-
         self.log('Reading input file', time=self._timer.startTimer('Prep Input'))
 
         if input_filename is None:
@@ -56,7 +61,7 @@ class DIMPy(object):
 
         if input_filename is None:
             raise DIMPyError('Must specify an input filename!')
-        elif not path.isfile(input_filename):
+        elif not os.path.isfile(input_filename):
             raise DIMPyError(f'Input file `{input_filename}` does not exist!')
 
         self._input_options = read_input_file(input_filename)
@@ -75,43 +80,14 @@ class DIMPy(object):
             self.pbc = None
 
 
-class DIMPyError(Exception):
-    """Error class for DIMPy errors.
-
-    Parameters
-    ----------
-    msg : :obj:`str`
-        The message to give to the user.
-
-    Examples
-    --------
-
-        >>> import dimpy
-        >>> try:
-        ...     filedata = dimpy.DIMPy(input_file='file.dim')
-        ... except dimpy.DIMPyError as d:
-        ...     sys.exit(str(d))
-
-    """
-    def __init__(self, msg):
-        self.msg = msg
-
-    def __str__(self):
-        return self.msg
-
-
 def run_from_command_line():
     """\
     Reads the inputs from the command line and runs the calculation
     """
 
-    from os.path import splitext
-    from input_reader import abs_file_path
-    from argparse import ArgumentParser
-    from dimpy import Nanoparticle, DDA, PIM
-
     # Assume that argparse exists and create an argument parser
-    parser = ArgumentParser(description="Front-end for the DIMPy code.", prog='DIMPy')
+    parser = argparse.ArgumentParser(description="Front-end for the DIMPy code.",
+                                     prog='DIMPy')
     parser.add_argument('--version', action='version',
                         version='%(prog)s {0}'.format(__version__))
     # read the input file name
@@ -131,7 +107,8 @@ def run_from_command_line():
     if args.out is not None:
         output_filename = args.out
     else:
-        output_filename = '.'.join([splitext(abs_file_path(args.file))[0], 'out'])
+        output_filename = '.'.join([os.path.splitext(input_reader.abs_file_path(
+                                   args.file))[0], 'out'])
 
     ################################
     # Perform the actual calculation
