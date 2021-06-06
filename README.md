@@ -12,8 +12,8 @@ J. Phys. Chem. C 2008, 112, 15697.
 #### To Install
 
 #### Copyright
-    Quantum Particle-in-a-Sandbox simulates the time-dependent quantum
-    mechanical wave function for any arbitrary potential.
+    A Discrete Interation Model for Python simulates the electrodynamics
+    interation in an atomistic nanoparticle.
     Copyright (C) 2021 Dhabih V. Chulhai
 
     This program is free software: you can redistribute it and/or modify
