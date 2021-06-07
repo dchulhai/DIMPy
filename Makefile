@@ -1,5 +1,5 @@
 init:
-	pip install -r requirements.txt
+	python3 -m pip install -r requirements.txt
 
 # test:
 #	py.test tests
