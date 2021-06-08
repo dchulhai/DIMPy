@@ -11,8 +11,9 @@ from scipy import interpolate, spatial
 from .constants import ELEMENTS, elemset as ELEMSET, atomic_mass, atomic_radius, \
                        ANGSTROM2BOHR, HART2NM, BOHR2NM
 from .dimpy_error import DIMPyError
+from .memory import Memory, check_memory
 from .printer import Output, print_header
-from .timer import Timer
+from .timer import Timer, check_time
 
 
 class Nanoparticle(object):
@@ -80,7 +81,7 @@ class Nanoparticle(object):
 
     def __init__(self, atoms_list_or_string, unit='Angstrom',
                  atom_params=None, rcut=100., output_filename=None,
-                 log_filename=None, pbc=None):
+                 log_filename=None, pbc=None, debug=False):
         '''Initializes the Nanoparticle class.
         '''
 
@@ -88,10 +89,14 @@ class Nanoparticle(object):
         self.out = Output(filename=output_filename)
         self.log = Output(filename=log_filename, logfile=True)
 
+        # initialize memory management
+        self._memory = Memory()
+
         # start reading from input file
         self._timer = Timer()
         start_time = self._timer.startTimer('Total Process', short='DIMPy')
-        self.log('Initializing nanoparticle', time=self._timer.startTimer('Init Nano'))
+        self.log('Initializing nanoparticle',
+            time=self._timer.startTimer('Nanoparticle.__init__'))
 
         # set passed in attributes here
         self.unit = unit
@@ -100,6 +105,7 @@ class Nanoparticle(object):
         self.log_filename = log_filename
         self.xyz_filename = None
         self.atom_params = atom_params
+        self.debug = debug
 
         # check if input is a string and that it's a filename
         if (isinstance(atoms_list_or_string, str) and
@@ -132,11 +138,14 @@ class Nanoparticle(object):
         self._radmult = None
 
         # end the timer
-        end_time = self._timer.endTimer('Init Nano')
+        end_time = self._timer.endTimer('Nanoparticle.__init__')
         self.log('Finished Initializing nanoparticle, '
                  '{0:.3f} seconds'.format(end_time[1]),
                  time=end_time[0])
 
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _read_coordinates(self, filename=None):
         '''\
         Determines whether this is a DIMPy input or an XYZ file
@@ -157,6 +166,9 @@ class Nanoparticle(object):
         if os.path.splitext(filename)[1].lower() == '.xyz':
             self._read_coordinates_from_xyz_file(filename)
 
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _read_coordinates_from_dimpy_input(self, filename=None):
         '''\
         Reads the coordinates from a DIMPy input file.
@@ -222,6 +234,9 @@ class Nanoparticle(object):
         self.coordinates *= 1.8897261328856432
         self.unit = 'bohr'
 
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _read_coordinates_from_xyz_file(self, filename=None):
         '''Reads the atom coordinates from an XYZ file.
         '''
@@ -266,6 +281,9 @@ class Nanoparticle(object):
         self.coordinates = np.array([[atom.group(i) for i in range(2,5)]
                                   for atom in options.coords], dtype=np.float32)
 
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _format_atoms(self, atoms_list_or_string):
         '''Convert the input :attr:`Nanoparticle.atoms_list_or_string` to the internal
         data format. The format is similar to pyscf.Mole atoms input.
@@ -325,6 +343,9 @@ class Nanoparticle(object):
         self.coordinates = np.array(self.coordinates, dtype=np.float32)
         self.natoms = len(self.atoms)
 
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _get_atomic_radii_from_atom_params(self, atom_params):
         self.atomic_radii = np.zeros((self.natoms))
         unique_atoms = np.unique(self.atoms)
@@ -336,6 +357,9 @@ class Nanoparticle(object):
                 raise DIMPyError(f'`rad` key for atom `{atom}` not given '
                                  'in atom_params!')
 
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _get_atomic_radii_from_dimpy_input(self, filename=None):
 
         if filename is None: filename = self.input_filename
@@ -379,6 +403,8 @@ class Nanoparticle(object):
     #################
 
     @property
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def atom(self):
         '''Atom list format from pyscf.Mole'''
         return [[self.atoms[i], np.array([self.coordinates[i][0],
@@ -391,6 +417,8 @@ class Nanoparticle(object):
         return self.natoms
 
     @property
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def masses(self):
         """The atomic mass of each atom in the nanoparticle
 
@@ -418,6 +446,8 @@ class Nanoparticle(object):
         return atm_mass(self.atoms) 
 
     @property
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def molecular_mass(self):
         """The total mass of the nanoparticle
 
@@ -443,7 +473,10 @@ class Nanoparticle(object):
             self._molecular_mass = self.masses.sum()
         return self._molecular_mass
 
+
     @property
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def static_polarizabilities(self):
         '''The polarizabilities of each atom caculated from their radii.'''
         if self._static_polarizabilities is None:
@@ -453,6 +486,9 @@ class Nanoparticle(object):
             self._static_polarizabilities = factor * self.atomic_radii**3
         return self._static_polarizabilities
 
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def atomic_polarizabilities(self, omega=None):
         '''The atomic polarizabilities.'''
 
@@ -472,6 +508,9 @@ class Nanoparticle(object):
             polarizabilities[atom_index] = atomic_pol
         return polarizabilities * self.static_polarizabilities
 
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _read_experimental_dielectric(self, die_file, omega):
 
         # get the experimental dielectric file and open it
@@ -497,32 +536,25 @@ class Nanoparticle(object):
     ###########################################################
 
     @property
+    @check_memory
+    @check_time(log='once')
     def r_vec(self):
         '''The vector distance between two points.'''
         if self._r_vec is None:
-
-            self.log('Generating R vector',
-                     time=self._timer.startTimer('R Vector'))
 
             self._r_vec = (self.coordinates[np.newaxis,:,:] -
                      self.coordinates[:,np.newaxis,:])
             if self.unit in ('A', 'Ang', 'Angstrom'):
                 self._r_vec *= 1.8897261328856432
 
-            end_time = self._timer.endTimer('R Vector')
-            self.log('Finished generating R vector, '
-                     '{0:.3f} seconds'.format(end_time[1]),
-                     time=end_time[0])
-
         return self._r_vec
 
     @property
+    @check_memory
+    @check_time(log='once')
     def distances(self):
         '''Get the distances between atoms in atomic units.'''
         if self._distances is None:
-
-            self.log('Caculating distance matrix',
-                     time=self._timer.startTimer('Dist Mat'))
 
             dists = spatial.distance.pdist(self.coordinates)
             self._distances = spatial.distance.squareform(dists)
@@ -530,20 +562,15 @@ class Nanoparticle(object):
             if self.unit in ('A', 'Ang', 'Angstrom'):
                 self._distances *= 1.8897261328856432
 
-            end_time = self._timer.endTimer('Dist Mat')
-            self.log('Finished calculating distance matrix, '
-                     '{0:.3f} seconds'.format(end_time[1]),
-                     time=end_time[0])
-
         return self._distances
 
     @property
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def volume(self):
         '''Get the volume.'''
 
         if self._volume is None:
-            self.log('Caculating Volume',
-                     time=self._timer.startTimer('Volume'))
 
             self._radmult = - 1.0 / (self.natoms**0.5) + 1.0
             radmult_cubed = self._radmult**3
@@ -554,10 +581,6 @@ class Nanoparticle(object):
             self._volume = 4.0 * math.pi * radmult_cubed * rad_cubed / 3.0
             self._volume *= BOHR2NM(1)**3 * ANGSTROM2BOHR(1)**3
 
-            end_time = self._timer.endTimer('Volume')
-            self.log('Finished calculating volume, '
-                     '{0:.3f} seconds'.format(end_time[1]),
-                     time=end_time[0])
 
         return self._volume
         
@@ -566,6 +589,8 @@ class Nanoparticle(object):
     # End Matrix and Tensor functions
     #################################
 
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _print_nanoparticle(self, output=None):
         '''Prints all relevant information about the nanoparticle.'''
 

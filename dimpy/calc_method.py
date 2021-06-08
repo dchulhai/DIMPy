@@ -13,11 +13,12 @@ from .constants import EV2HART, NM2HART, HZ2HART, WAVENUM2HART
 from .constants import ELEMENTS, NOCONV, HART2NM, BOHR2NM
 from .constants import HART2EV, HART2WAVENUM, HART2HZ
 from .dimpy_error import DIMPyError
+from .memory import check_memory
 from .printer import Output, print_atomic_dipoles
 from .printer import print_efficiencies
 from .printer import print_welcome, print_energy
 from .printer import print_polarizability
-from .timer import Timer
+from .timer import Timer, check_time
 
 
 class CalcMethod(object):
@@ -27,7 +28,7 @@ class CalcMethod(object):
     '''
 
     def __init__(self, nanoparticle, input_filename=None, output_filename=None,
-                 log_filename=None, freqs=None, title=None):
+                 log_filename=None, freqs=None, title=None, kdir=None, **kwargs):
         '''\
         Initializes the DIMPy class.
 
@@ -42,9 +43,12 @@ class CalcMethod(object):
         self.nanoparticle = nanoparticle
         self.out = nanoparticle.out
         self.log = nanoparticle.log
+        self._memory = nanoparticle._memory
         self._timer = nanoparticle._timer
+        self.debug = nanoparticle.debug
 
-        self.log('Initializing calculation', time=self._timer.startTimer('Init Calc'))
+        self.log('Initializing calculation',
+            time=self._timer.startTimer('CalcMethod.__init__'))
 
         # set default attributes and parameters
         if input_filename is None:
@@ -62,6 +66,13 @@ class CalcMethod(object):
         if input_filename is not None and not os.path.isfile(input_filename):
             raise DIMPyError(f'Input file `{input_filename}` does not exist!')
 
+        # get k-direction
+        if kdir is not None:
+            dirs = {'x': 0, 'y': 1, 'z': 2}
+            self.kdir = dirs[kdir]
+        else:
+            self.kdir = None
+
         # read frequency
         if freqs is not None:
             if isinstance(freqs, (int, float)):
@@ -76,6 +87,9 @@ class CalcMethod(object):
         else:
             self.freqs = np.zeros((1))
             self.nFreqs = 1
+
+            # you cannot have a k-direction for a static calculation
+            self.kdir = None
 
         # set attributes to be calculated later
         self._t0 = None
@@ -94,11 +108,14 @@ class CalcMethod(object):
         self.qExtinct = None
 
         # end the timer
-        end_time = self._timer.endTimer('Init Calc')
+        end_time = self._timer.endTimer('CalcMethod.__init__')
         self.log('Finished Initializing calculation, '
                  '{0:.3f} seconds'.format(end_time[1]),
                  time=end_time[0])
 
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _read_frequency(self, filename=None):
         '''Reads the frequency from a DIMPy input file and convert
         to atomic units.'''
@@ -142,6 +159,8 @@ class CalcMethod(object):
         self.nFreqs = len(self.freqs)
 
 
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _initialize_input_reader(self):
         '''Initializes and returns the DIMPy input file reader object.
         I did it this way because I don't want to call this
@@ -154,6 +173,8 @@ class CalcMethod(object):
         return reader
 
 
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _read_element_properties(self, filename=None):
         '''Read in the properties of each element.'''
 
@@ -186,53 +207,42 @@ class CalcMethod(object):
     ###########################################################
 
     @property
+    @check_memory
+    @check_time(log='once')
     def t0(self):
         '''The zeroth-order interaction tensor.'''
         if self._t0 is None:
-
-            self.log('Generating T0 tensor',
-                     time=self._timer.startTimer('T0 Tensor'))
 
             dists = self.nanoparticle.distances
             self._t0 = np.divide(1, dists, out=np.zeros_like(dists),
                                  where=dists!=0, dtype=np.float32)
 
-            end_time = self._timer.endTimer('T0 Tensor')
-            self.log('Finished generating T0 tensor, '
-                     '{0:.3f} seconds'.format(end_time[1]),
-                     time=end_time[0])
-
-            self.log('T0 Size (MB): ', self._t0.nbytes / (1024)**2)
+            self.log('T0 Size (MB): {0:.2f}'.format(self._t0.nbytes / (1024)**2))
 
         return self._t0
 
     @property
+    @check_memory
+    @check_time(log='once')
     def t1(self):
         '''The first-order interaction tensor.'''
         if self._t1 is None:
-
-            self.log('Generating T1 tensor',
-                     time=self._timer.startTimer('T1 Tensor'))
 
             r_vec = self.nanoparticle.r_vec
             r_inv = self.t0
             r3_inv = r_inv * r_inv * r_inv
             self._t1 = -1.0 * r3_inv[:,:,np.newaxis] * r_vec
 
-            end_time = self._timer.endTimer('T1 Tensor')
-            self.log('Finished generating T1 tensor, '
-                     '{0:.3f} seconds'.format(end_time[1]),
-                     time=end_time[0])
+        self.log('T2 Size (MB): {0:.2f}'.format(self._t2.nbytes / (1024)**2))
 
         return self._t1
 
     @property
+    @check_memory
+    @check_time(log='once')
     def t2(self):
         '''The second-order interaction tensor.'''
         if self._t2 is None:
-
-            self.log('Generating T2 tensor',
-                     time=self._timer.startTimer('T2 Tensor'))
 
             # do the off diagonal terms
             r_vec = self.nanoparticle.r_vec
@@ -246,23 +256,18 @@ class CalcMethod(object):
             self._t2[:,1,:,1] -= r3_inv
             self._t2[:,2,:,2] -= r3_inv
 
-            end_time = self._timer.endTimer('T2 Tensor')
-            self.log('Finished generating T2 tensor, '
-                     '{0:.3f} seconds'.format(end_time[1]),
-                     time=end_time[0])
-
-            self.log('T2 Size (MB): ', self._t2.nbytes / (1024)**2)
+            self.log('T2 Size (MB): {0:.2f}'.format(self._t2.nbytes / (1024)**2))
 
         return self._t2
 
+
+    @check_memory
+    @check_time
     def A_matrix(self, omega=None):
         '''Returns the A-matrix.'''
-        # start the timer
-        self.log('Generating A-matrix for this frequency',
-                 time=self._timer.startTimer('A-matrix'))
 
         natoms = self.nanoparticle.natoms
-        pol = 1 / self.nanoparticle.atomic_polarizabilities(omega)
+        pol_inv = 1 / self.nanoparticle.atomic_polarizabilities(omega)
 
         A_matrix = np.zeros_like(self.t2, dtype=self._dtype)
         A_matrix -= self.t2
@@ -270,21 +275,27 @@ class CalcMethod(object):
         for i in range(natoms):
             A_matrix[i,:,i,:] = 0
             for a in range(3):
-                A_matrix[i,a,i,a] = pol[i]
+                A_matrix[i,a,i,a] = pol_inv[i]
 
         self._A_matrix = A_matrix.reshape(natoms * 3, natoms * 3)
 
-        # end the timer
-        end_time = self._timer.endTimer('A-matrix')
-        self.log('Finished generating A-matrix, '
-                 '{0:.3f} seconds'.format(end_time[1]),
-                 time=end_time[0])
-
-        self.log('Amat Size (MB): ', self._A_matrix.nbytes / (1024)**2)
+        self.log('Amat Size (MB): {0:.2f}'.format(self._A_matrix.nbytes / (1024)**2))
 
         return self._A_matrix
 
-    def solve_one_direction(self, Amat, dimension=0, x0=None):
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
+    def _get_Einc(self, dimension, natoms, omega):
+        '''Get incident field for this direction.'''
+        E = np.zeros((natoms, 3), dtype=np.float32)
+        E[:, dimension] = 1 
+        E = E.reshape(natoms * 3)
+        return E
+
+    @check_memory
+    @check_time(log='debug')
+    def solve_one_direction(self, Amat, dimension=0, x0=None, omega=None):
 
         # get direction from dimension
         if dimension == 0:
@@ -312,9 +323,8 @@ class CalcMethod(object):
                 self.log(f'Iter: {self._iteration//10:>4d}, Err: {xk:8.2e},'
                          f' {ellapsed_time:6.3f} s')
 
-        E = np.zeros((natoms, 3), dtype=np.float32)
-        E[:, dimension] = 1
-        E = E.reshape(natoms * 3)
+        E = self._get_Einc(dimension, natoms, omega)
+
 #        mu = np.linalg.solve(Amat, E)
         mu, info = sp.sparse.linalg.gmres(Amat, E, x0=x0, callback=report)
         E = E.reshape(natoms, 3)
@@ -333,16 +343,25 @@ class CalcMethod(object):
 
         return mu.flatten()
 
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _calc_total_energy(self, dim, mu, E):
         if self.total_energy is None:
             self.total_energy = np.zeros((3))
         self.total_energy[dim] = -0.5 * (mu[:,dim] * E[:,dim]).sum()
 
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _calc_polarizability(self, dim, mu):
         if self.polarizability is None:
             self.polarizability = np.zeros((3,3), dtype=self._dtype)
         self.polarizability[dim,:] = mu.sum(axis=0)
 
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _calc_efficiencies(self, pol, omega):
 
         wavelength  = HART2NM(omega)
@@ -421,7 +440,7 @@ class CalcMethod(object):
             # run each direction
             for ixyz in range(3):
                 atomic_dipoles[ixyz] = self.solve_one_direction(Amat,
-                    ixyz, x0=atomic_dipoles[ixyz])
+                    ixyz, x0=atomic_dipoles[ixyz], omega=omega)
 
             # print energy terms
             if omega == 0 or omega is None:
@@ -434,6 +453,9 @@ class CalcMethod(object):
             if omega is not None and omega != 0:
                 self._calc_efficiencies(self.polarizability, omega)
 
+        # print memory statistics
+        self._memory.printLogs(verbosity=0, out=self.out)
+
         # print timing statistics
         self._timer.endAllTimers()
         self._timer.dumpTimings(verbosity=0, out=self.out)
@@ -444,6 +466,8 @@ class CalcMethod(object):
     ###################### 
 
     # Printing Methods specific to the calculation
+    @check_memory(log='debug')
+    @check_time(log='debug')
     def _print_atomic_dipoles(self, xyz, mu):
         print_atomic_dipoles(xyz, self.nanoparticle.atoms, mu, self.out)
 

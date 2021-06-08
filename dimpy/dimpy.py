@@ -8,6 +8,7 @@ import input_reader
 from .dimpy_error import DIMPyError
 from .calc_method import DDA
 from .modified_tensors import PIM
+from .method_dynamic_dda import DDAr
 from .nanoparticle import Nanoparticle
 from .printer import Output
 from .read_input_file import read_input_file
@@ -65,6 +66,13 @@ class DIMPy(object):
             raise DIMPyError(f'Input file `{input_filename}` does not exist!')
 
         self._input_options = read_input_file(input_filename)
+        self.debug = self._input_options.debug
+
+        # check for k-direction for retardation calculation
+        if self._input_options.kdir is not None:
+            self._input_options.kvec = True
+        else:
+            self._input_options.kvec = False
 
         # check for pbc
         if self._input_options.pbc is not None:
@@ -120,15 +128,17 @@ def run_from_command_line():
 
     # read in the nanoparticle data from the file
     nanoparticle = Nanoparticle(args.file, output_filename=output_filename,
-                                pbc=dimpy.pbc)
+                                pbc=dimpy.pbc, debug=dimpy.debug)
 
     # set up a calculations method
-    if dimpy._input_options.dda:
-        dda = DDA(nanoparticle)
-        dda.run()
+    if dimpy._input_options.dda and dimpy._input_options.kvec:
+        calculation = DDAr(nanoparticle, kdir=dimpy._input_options.kdir)
+    elif dimpy._input_options.dda and not dimpy._input_options.kvec:
+        calculation = DDA(nanoparticle)
     else:
-        dim = PIM(nanoparticle)
-        dim.run()
+        calculation = PIM(nanoparticle)
+
+    calculation.run()
 
 if __name__ == '__main__':
     try:

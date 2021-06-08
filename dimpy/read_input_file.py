@@ -36,6 +36,9 @@ def read_input_file(input_filename):
     reader.add_line_key('atomspercell', type=int, default=4)
     reader.add_boolean_key('coorddepend', action=True, default=False)
 
+    # k-vector direction (when present, this is a retardation calculation)
+    reader.add_line_key('kdir', type=('x', 'y', 'z'), default=None)
+
     #define media refactive index and scale factor for bulk plasma osillation
     reader.add_line_key('nsolv', type=float, default=1.0)
     reader.add_line_key('gfactor', type=float, default=7.0)

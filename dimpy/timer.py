@@ -1,6 +1,7 @@
-from time import time as currtime, process_time
-from datetime import datetime
 from collections import OrderedDict
+from datetime import datetime
+import functools
+from time import time as currtime, process_time
 
 __all__ = ['Timer', 'TimerError']
 
@@ -28,6 +29,8 @@ class Timer(object):
         # Initiallize the timer stack
         self._stack_long  = []
         self._stack_short = []
+        # keep track of what timers were already logged
+        self._logged = {}
 
     def startTimer(self, routine, time=None, cpu=None, short=None):
         """
@@ -145,13 +148,13 @@ class Timer(object):
 
             # Now print off the timings for the routines
             out('  Total Time (s)  CPU Time (s)  # Calls  Routine')
-            out('  ----------------------------------------------')
+            out('  --------------------------------------------------------')
             for r, times in routines.items():
                 out(f.format(times[0], times[1], times[2], r))
 
         elif verbosity == 1: 
             out('  Total Time (s)  CPU Time (s)  # Calls  Routine')
-            out('  ----------------------------------------------')
+            out('  --------------------------------------------------------')
             # Loop over each timing group
             for fullpath, (routine, times, cpu) in self._log.items():
                 # Print off the total time spent in that routine
@@ -159,7 +162,7 @@ class Timer(object):
 
         elif verbosity == 2:
             out('  Total Time (s)  CPU Time (s)   Call #  Routine')
-            out('  ----------------------------------------------')
+            out('  --------------------------------------------------------')
             # Loop over each timing group
             for fullpath, (routine, times, cpu) in self._log.items():
                 # Print off each time this routine was called
@@ -168,3 +171,45 @@ class Timer(object):
 
         # Leave a blank at end.
         out()
+
+def check_time(function=None, log='all'):
+    '''Checks how much time a function uses.'''
+    if not function:
+        return functools.partial(check_time, log=log)
+    @functools.wraps(function)
+    def new_function(self, *args, **kwargs):
+
+        # get a function name
+        function_name = type(self).__name__+'.'+function.__name__
+
+        # start the timer
+        if ((log != 'debug') or (log == 'debug' and self.debug)):
+            start_time = self._timer.startTimer(function_name)
+
+        # check whether we should log the time of this function
+        log_this = ((log == 'all') or ((log == 'once') and
+            (function_name not in self._timer._logged))
+            or self.debug)
+
+        # log the timer
+        if log_this:
+            self.log('Starting '+function_name, time=start_time)
+        try:
+            self._timer._logged[function_name] += 1
+        except KeyError:
+            self._timer._logged[function_name] = 1
+
+        result = function(self, *args, **kwargs)
+
+        # end the timer
+        if ((log != 'debug') or (log == 'debug' and self.debug)):
+            end_time = self._timer.endTimer(function_name)
+
+        # log the timer
+        if log_this:
+            self.log('Finished '+function_name
+                +' in {0:.3f} seconds'.format(end_time[1]),
+                time=end_time[0])
+
+        return result
+    return new_function
