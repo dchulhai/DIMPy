@@ -45,9 +45,9 @@ class Memory(object):
         out()
 
         # print memory statistics
-        out('  Routine                            Memory (MB)')
-        out('  ----------------------------------------------')
-        f = '  {0:<30s} {1:>15.2f}'
+        out('  Routine                                            Memory (MB) ')
+        out('  ---------------------------------------------------------------')
+        f = '  {0:<47s} {1:>15.2f}'
         for function in self._logs:
             out(f.format(function, self._logs[function]))
         out(f.format('Total Process', total_memory))
@@ -58,16 +58,6 @@ class Memory(object):
         '''
         return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
 
-#def check_memory(function):
-#    '''Checks how much memory a function uses.'''
-#    @functools.wraps(function)
-#    def new_function(self, *args, **kwargs):
-#        function_name = type(self).__name__+'.'+function.__name__
-#        self._memory.startLog(function_name)
-#        result = function(self, *args, **kwargs)
-#        self._memory.endLog(function_name)
-#        return result
-#    return new_function
 
 def check_memory(function=None, log='all'):
     '''Checks how much memory a function uses.'''
