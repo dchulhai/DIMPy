@@ -1,17 +1,25 @@
-# DIMPY
-## Discrete Interaction Model for Python
+*****
+DIMPy
+*****
 
-#### Citing this Program
+A Discrete Interaction Model for Python
+
+Citing this Program
+-------------------
+
 * A
 
-#### Other Citations
+Other Citations
+---------------
 * L.L. Jensen; L. Jensen; "Electrostatic Interaction Model for the
-Calculation of the Polarizability of Large Noble Metal Nanoclusters"
-J. Phys. Chem. C 2008, 112, 15697.
+  Calculation of the Polarizability of Large Noble Metal Nanoclusters"
+  J. Phys. Chem. C 2008, 112, 15697.
 
-#### To Install
+To Install
+----------
 
-#### Copyright
+Copyright
+---------
     A Discrete Interation Model for Python simulates the electrodynamics
     interation in an atomistic nanoparticle.
     Copyright (C) 2021 Dhabih V. Chulhai
