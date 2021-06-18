@@ -3,20 +3,25 @@ import os
 import numpy as np
 
 from .calc_method import CalcMethod
+from .constants import HART2NM
 from .dimpy_error import DIMPyError
 from .nanoparticle import Nanoparticle
 from .printer import Output
 
 class Analyzer(CalcMethod):
-    """\
-    Reads and analyzes the information from a DIMPy output file.
+    """Read and analyze the information from a DIMPy output file.
+
+    :param filename: The DIMPy input or output filename
+    :type filename: str
+
+    :param log_filename: Logfile to print any information to,
+        defaults to ``std.out``
+    :type log_filename: str, optional
+
     """
 
     def __init__(self, filename, log_filename=None):
-        '''Initializes the analyzer object given a filename.
-        '''
-
-
+        """Initialize the analyzer object given a filename."""
         # create log file
         self.log = Output(log_filename, logfile=True)
 
@@ -39,9 +44,7 @@ class Analyzer(CalcMethod):
 
 
     def _collect_output(self, output_filename=None):
-        '''Reads the keys from the output file.
-        '''
-
+        """Read the keys from the output file."""
         # Collect all data into memory for data retention
         if output_filename is None: output_filename = self.output_filename
         with open(output_filename) as fl:
@@ -66,7 +69,7 @@ class Analyzer(CalcMethod):
                 #############
     
                 # End of the input block
-                '                                Nanoparticle Input':
+                '                             Nanoparticle Information':
                                                            ['NANOPARTICLE', 3],
                 # Timing stats
                 '                                Timing Statistics':
@@ -213,3 +216,30 @@ class Analyzer(CalcMethod):
             self.atomic_dipoles = np.array(atomic_dipoles)
             self.atomic_dipoles = self.atomic_dipoles.reshape(self.nFreqs,
                 3, self.nanoparticle.natoms, 3)
+
+    def plot_spectrum(self, spectrum='absorbance', backend='matplotlib'):
+        """Plot the spectrum using matplotlib or plotly backend."""
+        if backend == 'matplotlib':
+            self._plot_with_matplotlib(spectrum=spectrum)
+        else:
+            raise DIMPyError (f'Backend "{backend}" not implemented!')
+
+    def _plot_with_matplotlib(self, spectrum):
+
+        from matplotlib import pyplot as plt
+
+        x = HART2NM(self.freqs)
+
+        # get y-value
+        if spectrum == 'absorbance':
+            y = self.cAbsorb
+            ylabel = 'Absorbance'
+
+        plt.plot(x,y,lw=2)
+        plt.ylabel(ylabel)
+        plt.xlabel('Wavelength (nm)')
+        plt.xlim((x.min(),x.max()))
+        plt.ylim((y.min(),y.max()+(y.max()-y.min())*0.05))
+        
+        plt.show()
+

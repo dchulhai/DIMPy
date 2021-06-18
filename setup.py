@@ -1,7 +1,7 @@
 import setuptools
 from dimpy._version import __version__
 
-with open("README.md", "r") as fh:
+with open("README.rst", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(

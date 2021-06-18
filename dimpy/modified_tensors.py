@@ -99,4 +99,3 @@ class ModifiedTensors(CalcMethod):
 
         return self._t2
 
-PIM = ModifiedTensors

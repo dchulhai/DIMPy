@@ -1,70 +1,128 @@
-
 import math
-import os
 import time
 
-from input_reader import InputReader
 import numpy as np
-from numpy import linalg
 import scipy as sp
+from scipy import linalg, sparse
 from scipy.sparse import linalg
 
-from .constants import EV2HART, NM2HART, HZ2HART, WAVENUM2HART
-from .constants import ELEMENTS, NOCONV, HART2NM, BOHR2NM
+from .constants import HART2NM, BOHR2NM
 from .constants import HART2EV, HART2WAVENUM, HART2HZ
 from .dimpy_error import DIMPyError
 from .memory import check_memory
 from .printer import Output, print_atomic_dipoles
 from .printer import print_efficiencies
-from .printer import print_welcome, print_energy
-from .printer import print_polarizability
+from .printer import print_welcome, print_energy, print_header
+from .printer import print_polarizability, print_input_file
 from .timer import Timer, check_time
 
 
 class CalcMethod(object):
-    '''Calculation base class.
+    """Calculation base class.
 
-    Uses a discrete dipole approximation (DDA) method
-    '''
+    Use a discrete dipole approximation (DDA) method to calculate
+    induced atomic dipoles. Class also used as the DIMPy calculation base
+    class.
 
-    def __init__(self, nanoparticle, input_filename=None, output_filename=None,
-                 log_filename=None, freqs=None, title=None, kdir=None, **kwargs):
-        '''\
-        Initializes the DIMPy class.
+    :param nanoparticle: Nanoparticle to use
+    :type nanoparticle: :class:`dimpy.nanoparticle.Nanoparticle`
 
-        :param nanoparticle: the dimpy.Nanoparticle object (Required).
+    :param output_filename: The name of the DIMPy output file, default None
+    :type output_filename: str or None, optional
 
-        :param input_filename: The name of the DIMPy input file (Optional).
-        :param output_filename: The name of the DIMPy output file (Optional).
-        :param log_filename: The name of the DIMPy log file (Optional).
-        '''
+    :param log_filename: The name of the DIMPy log file, default None
+    :type log_filename: str or None, optional
+
+    :param freqs: Frequencies at which to perform calculations in atomic
+        units (Hartrees), default None (static, or zero, frequency)
+    :type freqs: int or float or None, optional
+
+    :param title: Title of this calculation, default None
+    :type title: str or None, optional
+
+    :param kdir: Direction of the k-vector for calculations with retardation
+        effects, default is None (a non-retarded calculation)
+    :type kdir: str or None, optional
+
+    :param solver: Linalg solver to use, default is "gmres". Possible options
+        are given in :attr:`dimpy.read_input_file.ReadInput.solvers`
+    :type solver: str, optional
+
+    :param r_max_pbc: Maximum distance to calculate the interactions between
+        periodic images of the unit cell, default is 500 bohrs
+    :type r_max_pbc: float, optional
+
+    :param verbose: Verbosity level, default is None (use verbose level from
+        :class:`dimpy.nanoparticle.Nanoparticle`)
+    :type verbose: int or None, optional
+
+    :param debug: Debug flag, default is None (use debug from
+        :class:`dimpy.nanoparticle.Nanoparticle`)
+    :type debug: bool or None, optional
+
+    :cvar float total_energy: Total energy of the nanoparticle
+
+    :cvar numpy.ndarray polarizabilities: Polarizabilities calculated
+        at each frequency
+
+    :cvar numpy.ndarray isotropic_polarizabilities: Isotropic polarizabilities
+        calculated at each frequency
+
+    :cvar float cAbsorb: Absorbance cross-section
+
+    :cvar float cScatter: Scattering cross-section
+
+    :cvar float cExtinct: Extinction cross-section
+
+    :cvar float qAbsorb: Absorbance efficiency
+
+    :cvar float qScatter: Scattering efficiency
+
+    :cvar float qExtinct: Extinction efficiency
+
+    """
+
+    def __init__(self, nanoparticle, output_filename=None,
+                 log_filename=None, freqs=None, title=None, kdir=None,
+                 solver='gmres', r_max_pbc=500, verbose=None, debug=None):
+        """Initialize the DIMPy class."""
 
         # use the nanoparticle attributes
         self.nanoparticle = nanoparticle
+        if output_filename is None:
+            self.output_filename = nanoparticle.output_filename
+            self.out = nanoparticle.out
+        else:
+            self.output_filename = output_filename
+            self.out = Output(filename=output_filename)
+        if verbose is None:
+            self.verbose = nanoparticle.verbose
+        else:
+            self.verbose = verbose
+        if debug is None:
+            self.debug = nanoparticle.debug
+        else:
+            self.debug = debug
         self.out = nanoparticle.out
         self.log = nanoparticle.log
         self._memory = nanoparticle._memory
         self._timer = nanoparticle._timer
         self.debug = nanoparticle.debug
+        self.pbc = nanoparticle.pbc
+        self.title = title
+        self.natoms = self.nanoparticle.natoms
 
-        self.log('Initializing calculation',
-            time=self._timer.startTimer('CalcMethod.__init__'))
+        start_time = self._timer.startTimer('CalcMethod.__init__')
+        if self.verbose > 0 or self.debug:
+            self.log('Initializing calculation', time=start_time)
 
         # set default attributes and parameters
-        if input_filename is None:
-            input_filename = nanoparticle.input_filename
-        self.input_filename = input_filename
-        if output_filename is None:
-            output_filename = nanoparticle.output_filename
-        self.output_filename = output_filename
         if log_filename is None:
             log_filename = nanoparticle.log_filename
         self.log_filename = log_filename
         self.title = title
-
-        # check if given input file exists
-        if input_filename is not None and not os.path.isfile(input_filename):
-            raise DIMPyError(f'Input file `{input_filename}` does not exist!')
+        self.solver = solver
+        self.r_max_pbc = r_max_pbc
 
         # get k-direction
         if kdir is not None:
@@ -80,8 +138,6 @@ class CalcMethod(object):
             else:
                 self.freqs = np.array(freqs)
             self.nFreqs = len(self.freqs)
-        elif input_filename is not None:
-            self._read_frequency()
 
         # assume a static polarizability
         else:
@@ -97,7 +153,9 @@ class CalcMethod(object):
         self._t2 = None
         self._A_matrix = None
         self.total_energy = None
-        self.polarizability = None
+        self._polarizability = None
+        self.polarizabilities = None
+        self.atomic_dipoles = None
         self._iFreq = None
         self._dtype = None
         self.cAbsorb  = None
@@ -109,96 +167,37 @@ class CalcMethod(object):
 
         # end the timer
         end_time = self._timer.endTimer('CalcMethod.__init__')
-        self.log('Finished Initializing calculation, '
-                 '{0:.3f} seconds'.format(end_time[1]),
-                 time=end_time[0])
-
-
-    @check_memory(log='debug')
-    @check_time(log='debug')
-    def _read_frequency(self, filename=None):
-        '''Reads the frequency from a DIMPy input file and convert
-        to atomic units.'''
-
-        if filename is None: filename = self.input_filename
-
-        reader = self._initialize_input_reader()
-
-        freq = reader.add_mutually_exclusive_group()
-        freq.add_line_key('frequency',
-                          type=('ev', 'nm', 'hz', 'cm-1', 'hartree', 'au'),
-                          glob={'len': '+', 'type': float})
-        freq.add_line_key('freqrange',
-                          type=[('ev', 'nm', 'hz', 'cm-1', 'hartree', 'au'),
-                                float, float, int])
-
-        options = reader.read_input(filename)
-
-        conversion = {'ev': EV2HART,
-                      'nm': NM2HART,
-                      'hz': HZ2HART,
-                      'cm-1': WAVENUM2HART,
-                      'hartree': NOCONV,
-                      'au': NOCONV}
-
-        # convert individually given frequency
-        if options.frequency is not None:
-            convert = conversion[options.frequency[0]]
-            freqs = []
-            for freq in options.frequency[1:]:
-                freqs.append(convert(freq))
-            self.freqs = np.array(freqs, dtype=float)
-
-        # expand the frequency range and convert appropriately
-        elif options.freqrange is not None:
-            convert = conversion[options.freqrange[0]]
-            start, stop, num = options.freqrange[1:]
-            self.freqs = convert(np.linspace(start, stop, num))
-            self.freqs = np.sort(self.freqs) # sort in order of increasing energy
-
-        self.nFreqs = len(self.freqs)
-
-
-    @check_memory(log='debug')
-    @check_time(log='debug')
-    def _initialize_input_reader(self):
-        '''Initializes and returns the DIMPy input file reader object.
-        I did it this way because I don't want to call this
-        identical code many times.
-
-        Valid comment characters are `::`, `#`, `!`, and `//`
-        '''
-        reader = InputReader(comment=['!', '#', '::', '//'],
-                 case=False, ignoreunknown=True)
-        return reader
-
-
-    @check_memory(log='debug')
-    @check_time(log='debug')
-    def _read_element_properties(self, filename=None):
-        '''Read in the properties of each element.'''
-
-        if filename is None: filename = self.input_filename
-
-        reader = self._initialize_input_reader()
-
-        # Add a parameter block for each element
-        for element in ELEMENTS:
-            e = reader.add_block_key(element)
-
-            # required keys
-            e.add_line_key('rad', type=float, required=True)
-
-            # optional keys
-            e.add_line_key('exp',   type=str, case=True, default=None)
-
-        # read in all the element parameters
-        options = reader.read_input(filename) 
+        if self.verbose > 0 or self.debug:
+            self.log('Finished Initializing calculation, '
+                     '{0:.3f} seconds'.format(end_time[1]),
+                     time=end_time[0])
 
     @property
     def wavelength_nm(self):
-        '''Returns the frequencies as a wavelength in nm.'''
+        """Frequencies as wavelengths in nm."""
         return HART2NM(self.freqs)
+
+    def print_calc_information(self, output=None):
+        """Print the information for this calculation."""
+        if output is None:
+            output = self.out
+
+        print_header('Calculation Information', output)
+        output(f'Title             : {self.title}')
+#        interaction = 'DIM'
+#        if self._input_options.dda:
+#            interaction = 'DDA'
+#        output(f'Interaction type  : {interaction}')
+#        model = 'PIM'
+#        if self._input_options.cpim:
+#            model = 'CPIM'
+#        output(f'Interaction model : {model}')
+        approx = 'Quasi-static approximation'
+        if self.kdir is not None:
+            approx = f'k = {self.kdir}'
+        output(f'Wave vector       : {approx}')
+        output()
+
 
     ###########################################################
     # Matrix and Tensor Functions
@@ -210,14 +209,19 @@ class CalcMethod(object):
     @check_memory
     @check_time(log='once')
     def t0(self):
-        '''The zeroth-order interaction tensor.'''
+        r"""Calculate and return the zeroth-order interaction tensor.
+
+        .. math::
+
+            T^{(0)}_{ij} = \frac{1}{|r_{ij}|}
+
+        """
+
         if self._t0 is None:
 
             dists = self.nanoparticle.distances
             self._t0 = np.divide(1, dists, out=np.zeros_like(dists),
                                  where=dists!=0, dtype=np.float32)
-
-            self.log('T0 Size (MB): {0:.2f}'.format(self._t0.nbytes / (1024)**2))
 
         return self._t0
 
@@ -225,7 +229,14 @@ class CalcMethod(object):
     @check_memory
     @check_time(log='once')
     def t1(self):
-        '''The first-order interaction tensor.'''
+        r"""Calculate and return the first-order interaction tensor.
+
+        .. math::
+
+            T^{(1)}_{ij,\alpha} = -\frac{r_{ij,\alpha}}{|r_{ij}|^3}
+
+        """
+
         if self._t1 is None:
 
             r_vec = self.nanoparticle.r_vec
@@ -233,16 +244,24 @@ class CalcMethod(object):
             r3_inv = r_inv * r_inv * r_inv
             self._t1 = -1.0 * r3_inv[:,:,np.newaxis] * r_vec
 
-        self.log('T2 Size (MB): {0:.2f}'.format(self._t2.nbytes / (1024)**2))
-
         return self._t1
 
     @property
     @check_memory
     @check_time(log='once')
     def t2(self):
-        '''The second-order interaction tensor.'''
+        r"""Calculate and return the second-order interaction tensor.
+
+        .. math::
+
+            T^{(2)}_{ij,\alpha\beta} = \frac{3 r_{ij,\alpha} r_{ij,\beta}}{|r_{ij}|^5} -
+            \frac{\delta_{\alpha\beta}}{|r_{ij}|^3}
+
+        """
+
         if self._t2 is None:
+
+            natoms = self.nanoparticle.natoms
 
             # do the off diagonal terms
             r_vec = self.nanoparticle.r_vec
@@ -250,13 +269,12 @@ class CalcMethod(object):
             r3_inv = r_inv * r_inv * r_inv
             r5_inv = r3_inv * r_inv * r_inv
 
-            self._t2 = 3 * np.einsum('ij,ija,ijb->iajb', r5_inv, r_vec,
-                                     r_vec, dtype=np.float32, casting='same_kind')
+            self._t2 = 3 * np.einsum('ij,ijk,ijl->ikjl', r5_inv, r_vec,
+                                     r_vec, dtype=np.float32, casting='same_kind',
+                                     optimize=True)
             self._t2[:,0,:,0] -= r3_inv
             self._t2[:,1,:,1] -= r3_inv
             self._t2[:,2,:,2] -= r3_inv
-
-            self.log('T2 Size (MB): {0:.2f}'.format(self._t2.nbytes / (1024)**2))
 
         return self._t2
 
@@ -264,12 +282,27 @@ class CalcMethod(object):
     @check_memory
     @check_time
     def A_matrix(self, omega=None):
-        '''Returns the A-matrix.'''
+        r"""Calculate the A-matrix.
+
+        .. math::
+
+            A_{ij,\alpha\beta} = \begin{cases}
+                \alpha_{\alpha\beta}^{-1}, & \text{if $i=j$} \\
+                -T^{(2)}_{ij,\alpha\beta}, & \text{if $i\neq j$}
+            \end{cases}
+
+        :param omega: Incident frequency, default None
+        :type omega: float, optional
+
+        :returns: The A-matrix
+        :rtype: numpy.ndarray (float or complex)
+
+        """
 
         natoms = self.nanoparticle.natoms
         pol_inv = 1 / self.nanoparticle.atomic_polarizabilities(omega)
 
-        A_matrix = np.zeros_like(self.t2, dtype=self._dtype)
+        A_matrix = np.zeros((natoms, 3, natoms, 3), dtype=self._dtype)
         A_matrix -= self.t2
 
         for i in range(natoms):
@@ -279,15 +312,12 @@ class CalcMethod(object):
 
         self._A_matrix = A_matrix.reshape(natoms * 3, natoms * 3)
 
-        self.log('Amat Size (MB): {0:.2f}'.format(self._A_matrix.nbytes / (1024)**2))
-
         return self._A_matrix
-
 
     @check_memory(log='debug')
     @check_time(log='debug')
     def _get_Einc(self, dimension, natoms, omega):
-        '''Get incident field for this direction.'''
+        """Get incident field for this direction."""
         E = np.zeros((natoms, 3), dtype=np.float32)
         E[:, dimension] = 1 
         E = E.reshape(natoms * 3)
@@ -296,6 +326,26 @@ class CalcMethod(object):
     @check_memory
     @check_time(log='debug')
     def solve_one_direction(self, Amat, dimension=0, x0=None, omega=None):
+        """Solve the induced dipoles for incident fields in one of the
+        three Cartesian directions.
+
+        :param Amat: A-matrix for this frequency
+        :type Amat: :meth:`A_matrix`
+
+        :param int dimension: Direction of incident electric field polarization
+            for calculation, default is 0. 0 corresponds to "x", 1 corresponds to
+            "y", and 2 corresponds to "z".
+
+        :param x0: Starting guess for calculation, default None
+        :type x0: numpy.ndarray, optional
+
+        :param omega: Incident frequency, default None
+        :type omega: float, optional
+
+        :returns: Induced dipoles
+        :rtype: numpy.ndarray (flattened 3 by natoms)
+
+        """
 
         # get direction from dimension
         if dimension == 0:
@@ -307,29 +357,24 @@ class CalcMethod(object):
         else:
             xyz = 'UNKNOWN'
 
-        self.log(f'Solving {xyz} direction',
-                 time=self._timer.startTimer(f'{xyz} direction'))
+        start_time = self._timer.startTimer(f'{xyz} direction')
+        if self.verbose > 0 or self.debug:
+            self.log(f'Solving {xyz} direction', time=start_time)
 
         natoms = self.nanoparticle.natoms
 
-        # print iterations and residuals to logfile
-        self._iteration = 0
-        self._itertime = time.perf_counter()
-        def report(xk):
-            self._iteration += 1
-            if self._iteration%10 == 0:
-                ellapsed_time = time.perf_counter() - self._itertime
-                self._itertime = time.perf_counter()
-                self.log(f'Iter: {self._iteration//10:>4d}, Err: {xk:8.2e},'
-                         f' {ellapsed_time:6.3f} s')
-
+        # get incident fields
         E = self._get_Einc(dimension, natoms, omega)
 
-#        mu = np.linalg.solve(Amat, E)
-        mu, info = sp.sparse.linalg.gmres(Amat, E, x0=x0, callback=report)
+        # solver for dipoles
+        mu = self.solve(Amat, E, x0=x0)
+
+
+        # reshape field and dipoles
         E = E.reshape(natoms, 3)
         mu = mu.reshape(natoms, 3)
 
+        # print dipoles if needed
         self._print_atomic_dipoles(xyz, mu)
         if np.isrealobj(mu):
             self._calc_total_energy(dimension, mu, E)
@@ -337,12 +382,120 @@ class CalcMethod(object):
 
         # end the timer
         end_time = self._timer.endTimer(f'{xyz} direction')
-        self.log(f'Finished {xyz} direction, '
-                 '{0:.3f} seconds'.format(end_time[1]),
-                 time=end_time[0])
+        if self.verbose > 0 or self.debug:
+            self.log(f'Finished {xyz} direction, '
+                     '{0:.3f} seconds'.format(end_time[1]),
+                     time=end_time[0])
 
         return mu.flatten()
 
+
+    @check_memory(log='debug')
+    @check_time(log='debug')
+    def solve(self, Amat, E, x0=None, solver=None):
+        """Choose the appropriate solver based on the solver given.
+
+        :param Amat: A-matrix for this frequency
+        :type Amat: :meth:`A_matrix`
+
+        :param E: Incident electric field for this calculation
+        :type E: numpy.ndarray (3 by 3)
+
+        :param x0: Starting guess for calculation, default None
+        :type x0: numpy.ndarray, optional
+
+        :param solver: Solver to use, default is None (solver
+            set previously). Options for solver are in
+            :attr:`dimpy.read_input_file.ReadInput.solvers`
+        :type solver: str or None, optional
+
+        :returns: Induced dipoles
+        :rtype: numpy.ndarray (3 by natoms)
+
+        """
+
+        if solver is None: solver = self.solver
+
+        # print iterations and residuals to logfile
+        self._iteration = 0 
+        self._itertime = time.perf_counter()
+        def report(xk):
+            self._iteration += 1
+            if self._iteration%10 == 0:
+                ellapsed_time = time.perf_counter() - self._itertime
+                self._itertime = time.perf_counter()
+                if self.verbose > 1 or self.debug:
+                    self.log(f'Iter: {self._iteration//10:>4d}, Err: {xk:8.2e},'
+                             f' {ellapsed_time:6.3f} s')
+        self._old_solution_vector = None
+        def report2(xk):
+            self._iteration += 1
+            self._new_solution_vector = xk.copy()
+#            if self._iteration%10 == 0:
+            if self._iteration > 1:
+                ellapsed_time = time.perf_counter() - self._itertime
+                self._itertime = time.perf_counter()
+                error = (np.abs(self._old_solution_vector
+                               - self._new_solution_vector).sum()
+                        / (self.nanoparticle.natoms * 3))
+                if self.verbose > 1 or self.debug:
+                    self.log(f'Iter: {self._iteration:>4d}, Err: {error:8.2e},'
+                             f' {ellapsed_time:6.3f} s')
+            self._old_solution_vector = xk.copy()
+
+        # get appropriate solver
+        if solver == 'direct' or solver == 'solve':
+            mu = sp.linalg.solve(Amat, E)
+
+        elif solver == 'bicg':
+            mu, info = sp.sparse.linalg.bicg(Amat, E, x0=x0,
+                                             callback=report2, atol=1e-5)
+
+        elif solver == 'bicgstab':
+            mu, info = sp.sparse.linalg.bicgstab(Amat, E, x0=x0,
+                                                 callback=report2, atol=1e-5)
+
+        elif solver == 'cg':
+            mu, info = sp.sparse.linalg.cg(Amat, E, x0=x0,
+                                           callback=report2, atol=1e-5)
+
+        elif solver == 'cgs':
+            mu, info = sp.sparse.linalg.cgs(Amat, E, x0=x0,
+                                            callback=report2, atol=1e-5)
+
+        elif solver == 'gmres':
+            mu, info = sp.sparse.linalg.gmres(Amat, E, x0=x0, atol=1e-5,
+                                              callback=report, callback_type='legacy')
+
+        elif solver == 'lgmres':
+            mu, info = sp.sparse.linalg.lgmres(Amat, E, x0=x0,
+                                               callback=report2, atol=1e-5)
+
+        elif solver == 'minres':
+            mu, info = sp.sparse.linalg.minres(Amat, E, x0=x0,
+                                               callback=report2)
+
+        elif solver == 'qmr':
+            mu, info = sp.sparse.linalg.qmr(Amat, E, x0=x0,
+                                            callback=report2, atol=1e-5)
+
+        elif solver == 'gcrotmk':
+            mu, info = sp.sparse.linalg.gcrotmk(Amat, E, x0=x0,
+                                                callback=report2, atol=1e-5)
+
+        else:
+            raise DIMPyError("Unimplemented solver solver specified: "
+                + solver)
+
+        return mu
+
+    #################################
+    # End Matrix and Tensor functions
+    #################################
+
+    ###############################
+    # Begin calculated properties #
+    ###############################
 
     @check_memory(log='debug')
     @check_time(log='debug')
@@ -355,10 +508,16 @@ class CalcMethod(object):
     @check_memory(log='debug')
     @check_time(log='debug')
     def _calc_polarizability(self, dim, mu):
-        if self.polarizability is None:
-            self.polarizability = np.zeros((3,3), dtype=self._dtype)
-        self.polarizability[dim,:] = mu.sum(axis=0)
+        if self._polarizability is None:
+            self._polarizability = np.zeros((3,3), dtype=self._dtype)
+        self._polarizability[dim,:] = mu.sum(axis=0)
 
+    @property
+    @check_memory(log='debug')
+    @check_time(log='debug')
+    def isotropic_polarizabilities(self):
+        """Isotropic polarizabilities calculated at each frequency."""
+        return np.trace(self.polarizabilities, axis1=1, axis2=2) / 3.0
 
     @check_memory(log='debug')
     @check_time(log='debug')
@@ -367,7 +526,7 @@ class CalcMethod(object):
         wavelength  = HART2NM(omega)
         k           = 2 * math.pi /wavelength
         iso         = np.trace(pol) / 3.0
-        iso        *= BOHR2NM(1)**3 # convert pol to au^3 to nm^3
+        iso        *= BOHR2NM(1)**3 # convert pol from au^3 to nm^3
         cAbsorb     = k * iso.imag
         cScatter    = k**4 * np.abs(iso.real**2 + iso.imag**2) / (6 * math.pi)
         cExtinct    = cAbsorb + cScatter
@@ -394,23 +553,30 @@ class CalcMethod(object):
             self.qScatter = np.append(self.qScatter, [qScatter])
             self.qExtinct = np.append(self.qExtinct, [qExtinct])
 
-        print_efficiencies(qAbsorb, qScatter, qExtinct, cAbsorb, cScatter,
-                           cExtinct, self.out)
+        if self.verbose > 0 or self.debug:
+            print_efficiencies(qAbsorb, qScatter, qExtinct, cAbsorb, cScatter,
+                               cExtinct, self.out)
 
-    #################################
-    # End Matrix and Tensor functions
-    #################################
+    #############################
+    # End calculated properties #
+    #############################
 
     ########################
     # Begin main run routine
     ########################
 
     def run(self):
-        '''Runs the calculation.'''
+        """Run the calculation."""
 
-        # print header
-        print_welcome(self.out)
-        self.nanoparticle._print_nanoparticle()
+        # print headers
+        if self.verbose > 1 or self.debug:
+            print_welcome(self.out)
+        # FIXME
+#        if self.verbose > 2 or self.debug:
+#            print_input_file(opts, output=self.out)
+        if self.verbose > 1 or self.debug:
+            self.print_calc_information()
+            self.nanoparticle.print_nanoparticle()
 
         # generate the interaction tensors
         if self._t2 is None:
@@ -418,12 +584,16 @@ class CalcMethod(object):
 
         # temporarily hole the atomic dipoles here for
         # restart when calculating multiple frequencies
-        atomic_dipoles = [None, None, None]
+        self.atomic_dipoles = None
+        x0 = [None, None, None]
 
         # cycle over each frequency
         for self._iFreq in range(self.nFreqs):
 
             omega = self.freqs[self._iFreq]
+
+            # reset polarizability
+            self._polarizability = None
 
             # check if this is a static calculation
             if omega == 0 or omega is None:
@@ -432,33 +602,52 @@ class CalcMethod(object):
                 self._dtype = np.complex64
 
             # print frequency header
-            self._print_freq_header(self.freqs[self._iFreq])
+            if self.verbose > 0 or self.debug:
+                self._print_freq_header(self.freqs[self._iFreq])
 
             # create the A matrix
             Amat = self.A_matrix(omega)
 
+            if self.atomic_dipoles is None:
+                self.atomic_dipoles = np.zeros((1,3,self.natoms,3),
+                    dtype=self._dtype)
+            else:
+                self.atomic_dipoles = np.append(self.atomic_dipoles,
+                    np.zeros((1,3,self.natoms,3), dtype=self._dtype), axis=0)
             # run each direction
             for ixyz in range(3):
-                atomic_dipoles[ixyz] = self.solve_one_direction(Amat,
-                    ixyz, x0=atomic_dipoles[ixyz], omega=omega)
+                atomic_dipoles = self.solve_one_direction(Amat,
+                    ixyz, x0=x0[ixyz], omega=omega)
+                self.atomic_dipoles[self._iFreq,ixyz,:] = atomic_dipoles.reshape(
+                                                            self.natoms,3)
+                x0[ixyz] = atomic_dipoles
 
             # print energy terms
             if omega == 0 or omega is None:
-                print_energy(self.total_energy, self.out)
+                if self.verbose > 0 or self.debug:
+                    print_energy(self.total_energy, self.out)
 
             # print polarizability tensor
-            print_polarizability(self.polarizability, self.out)
+            if self.polarizabilities is None:
+                self.polarizabilities = np.array([self._polarizability])
+            else:
+                self.polarizabilities = np.append(self.polarizabilities,
+                                                  [self._polarizability], axis=0)
+            if self.verbose > 0 or self.debug:
+                print_polarizability(self._polarizability, self.out)
 
             # calculate and print efficiencies
             if omega is not None and omega != 0:
-                self._calc_efficiencies(self.polarizability, omega)
+                self._calc_efficiencies(self._polarizability, omega)
 
         # print memory statistics
-        self._memory.printLogs(verbosity=0, out=self.out)
+        if self.verbose > 0 or self.debug:
+            self._memory.printLogs(verbosity=0, out=self.out)
 
         # print timing statistics
         self._timer.endAllTimers()
-        self._timer.dumpTimings(verbosity=0, out=self.out)
+        if self.verbose > 0 or self.debug:
+            self._timer.dumpTimings(verbosity=0, out=self.out)
 
 
     ######################
@@ -469,7 +658,8 @@ class CalcMethod(object):
     @check_memory(log='debug')
     @check_time(log='debug')
     def _print_atomic_dipoles(self, xyz, mu):
-        print_atomic_dipoles(xyz, self.nanoparticle.atoms, mu, self.out)
+        if self.verbose > 2 or self.debug:
+            print_atomic_dipoles(xyz, self.nanoparticle.atoms, mu, self.out)
 
     def _print_freq_header(self, omega):
 
@@ -494,6 +684,4 @@ class CalcMethod(object):
         self.out(f'***** {Hz:23.4e} Hz   *****'.center(79))
         self.out(('*'*len(string)).center(79))
         self.out()
-        
 
-DDA = CalcMethod

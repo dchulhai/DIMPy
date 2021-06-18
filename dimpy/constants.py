@@ -1,3 +1,23 @@
+"""
+Provide commonly used constants and conversions
+
+:var ELEM_CHARGE: Elementary charge in C
+:var MASS_ELECT: Mass of the electron in kg
+:var MASS_PROT: Mass of the proton in kg
+:var MASS_NEUT: Mass of the neutron in kg
+:var PLANCK: Planck's constant in J.s
+:var HBAR: Reduced Planck's constant in J.s
+:var LIGHT: Speed of light in m/s
+:var BOLTZMAN: Boltzman's constant in J/K
+:var AVOGADRO: Avogadro's number in particles/mol
+:var VACUUM_EL: Vacuum permittivity in F/m
+:var VACUUM_MAG: Vacuum permeability in H/m
+:var FINE_STRUCTURE: Fine structure constant (unitless)
+:var LIGHT_AU: Speed of light in atomic units
+:var AMU: Atomic mass unit in kg
+
+"""
+
 from math import pi as PI
 import sys
 
@@ -523,8 +543,9 @@ def atomic_mass(element):
 
 # This function returns a number or element.
 def atomic_number(element):
-    '''Return the atomic number if given an element,
-    or the symbol if given a number.'''
+    """Return the atomic number if given an element,
+    or the symbol if given a number.
+    """
 
     # First, assume an integer was given
     try:

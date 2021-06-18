@@ -4,93 +4,29 @@ import os
 
 import argparse
 import input_reader
+import numpy as np
 
 from .dimpy_error import DIMPyError
-from .calc_method import DDA
-from .modified_tensors import PIM
+from .method_static_dda import DDAs
+from .method_static_dim import DIMs
+from .method_static_dda_pbc import DDAsPBC
 from .method_dynamic_dda import DDAr
+from .method_dynamic_dda_pbc import DDArPBC
 from .nanoparticle import Nanoparticle
 from .printer import Output
-from .read_input_file import read_input_file
+from .read_input_file import ReadInput
 from .timer import Timer
 from ._version import __version__
 
-class DIMPy(object):
-    """\
-    Stores the DIMPy data.
-    """
-
-    def __init__(self, input_filename=None, output_filename=None, log_filename=None):
-        '''\
-        Initializes the DIMPy class.
-
-        :param input_filename: The name of the DIMPy input file (Optional).
-        :param output_filename: The name of the DIMPy output file (Optional).
-        :param log_filename: The name of the DIMPy log file (Optional).
-        '''
-
-        self.input_filename = input_filename
-        self.output_filename = output_filename
-        self.log_filename = log_filename
-
-        # check if given input file exists
-        if input_filename is not None and not os.path.isfile(input_filename):
-            raise DIMPyError(f'Input file `{input_filename}` does not exist!')
-
-        # start a timer, even if you're just reading output data
-        self._timer = Timer()
-
-        # create the output and log files
-        self.out = Output(filename=output_filename)
-        self.log = Output(filename=log_filename, logfile=True)
-
-        # debug flag
-        self.debug = True
-
-
-    def read_input(self, input_filename=None):
-        '''\
-        Reads the input options from a DIMPy input file.
-
-        :param input_filename: The name of the DIMPy input file (Optional).
-        '''
-
-        self.log('Reading input file', time=self._timer.startTimer('Prep Input'))
-
-        if input_filename is None:
-            input_filename = self.input_filename
-
-        if input_filename is None:
-            raise DIMPyError('Must specify an input filename!')
-        elif not os.path.isfile(input_filename):
-            raise DIMPyError(f'Input file `{input_filename}` does not exist!')
-
-        self._input_options = read_input_file(input_filename)
-        self.debug = self._input_options.debug
-
-        # check for k-direction for retardation calculation
-        if self._input_options.kdir is not None:
-            self._input_options.kvec = True
-        else:
-            self._input_options.kvec = False
-
-        # check for pbc
-        if self._input_options.pbc is not None:
-            pbc = self._input_options.pbc
-            pbc_coords = [0, 0, 0]
-            for ix in range(3):
-                if pbc.groups()[ix+1] is not None:
-                    pbc_coords[ix] = float(pbc.groups()[ix+1]) * 1.88973 # to bohr
-                else:
-                    break
-            self.pbc = pbc_coords
-        else:
-            self.pbc = None
-
-
 def run_from_command_line():
-    """\
-    Reads the inputs from the command line and runs the calculation
+    """Read the inputs from the command line and runs the calculation.
+
+    For useage, see:
+
+    .. code-block:: console
+
+        python -m dimpy --help
+
     """
 
     # Assume that argparse exists and create an argument parser
@@ -118,27 +54,89 @@ def run_from_command_line():
         output_filename = '.'.join([os.path.splitext(input_reader.abs_file_path(
                                    args.file))[0], 'out'])
 
-    ################################
-    # Perform the actual calculation
-    ################################
+    calculation = run(args.file, output_filename=output_filename)
 
-    # read input file
-    dimpy = DIMPy(input_filename=args.file, output_filename=output_filename)
-    dimpy.read_input()
+def run (filename, output_filename=None, run_calc=True):
+    """Run a DIMPy input file.
 
-    # read in the nanoparticle data from the file
-    nanoparticle = Nanoparticle(args.file, output_filename=output_filename,
-                                pbc=dimpy.pbc, debug=dimpy.debug)
+    :param filename str: The name of the DIMPy input file. See
+        :class:`dimpy.read_input_file.ReadInput` for input file format
 
-    # set up a calculations method
-    if dimpy._input_options.dda and dimpy._input_options.kvec:
-        calculation = DDAr(nanoparticle, kdir=dimpy._input_options.kdir)
-    elif dimpy._input_options.dda and not dimpy._input_options.kvec:
-        calculation = DDA(nanoparticle)
+    :param output_filename: The name of the output file to print
+        calculation information, default None
+    :type output_filename: str, optional
+
+    :param run_calc: whether to run the calculation, default True
+    :param run_calc: bool, optional
+
+    :returns: :class:`dimpy.calc_method.CalcMethod` object
+
+    **Example**::
+
+    >>> import dimpy
+    >>> calc = dimpy.run('filename.dim')
+
+    """
+
+    # read the DIMPy input file
+    options = ReadInput(filename).read()
+
+    # create the nanoparticle
+    nano = options.nanoparticle
+    nanoparticle = Nanoparticle(nano.atoms, output_filename=output_filename,
+                                verbose=options.verbose, debug=options.debug,
+                                pbc=nano.pbc, unit=nano.unit,
+                                atom_params=nano.atom_params)
+    nanoparticle.build()
+
+    # get calculation method options
+    method = options.method
+
+    calc = []
+    calc.append(method.interaction.upper())
+    if method.kdir is not None:
+        calc.append('RET')
     else:
-        calculation = PIM(nanoparticle)
+        calc.append('STA')
+    calc.append('PIM')
+    if nanoparticle.pbc is not None:
+        calc.append('PBC')
+    else:
+        calc.append('MOL')
 
-    calculation.run()
+    # get calculation method based on calctype
+    methods = {'DDAs': [['MOL', 'STA', 'DDA', 'PIM'], DDAs],
+               'DDAr': [['MOL', 'RET', 'DDA', 'PIM'], DDAr],
+               'DDAsPBC': [['PBC', 'STA', 'DDA', 'PIM'], DDAsPBC],
+               'DDArPBC': [['PBC', 'RET', 'DDA', 'PIM'], DDArPBC],
+               'DIMs': [['MOL', 'STA', 'DIM', 'PIM'], DIMs],
+              }
+    calc_method = None
+    for calctype in methods:
+        if all([x in methods[calctype][0] for x in calc]):
+            calc_method = methods[calctype][1]
+    if calc_method is None:
+        raise DIMPyError('Calculation type not yet implemented!')
+
+    # run the calculation
+    calculation = calc_method(nanoparticle, kdir=method.kdir,
+                              freqs=method.freqs,
+                              solver=method.solver, title=options.title)
+
+    if run_calc:
+        try:
+            calculation.run()
+
+
+        # print statistics if the program was interrupted
+        except KeyboardInterrupt:
+            calculation._memory.printLogs(verbosity=0, out=calculation.out)
+            calculation._timer.endAllTimers()
+            calculation._timer.dumpTimings(verbosity=0, out=calculation.out)
+            raise KeyboardInterrupt
+
+    # return calculation
+    return calculation
 
 if __name__ == '__main__':
     try:

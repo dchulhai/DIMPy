@@ -1,0 +1,17 @@
+TITLE 2-Dimensional single-atom silver sheet
+
+NANOPARTICLE
+  Atoms
+    Ag 0 0 0
+  End
+  PBC
+    0 0 1.89
+    0 1.89 0
+  End
+  AtomParam Ag exp Ag_jc
+ENDNANOPARTICLE
+
+METHOD
+  Interaction DDA
+  Frequency nm 545
+ENDMETHOD

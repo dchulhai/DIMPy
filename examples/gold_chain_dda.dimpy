@@ -1,0 +1,16 @@
+TITLE 1-Dimensional single-atom gold chain
+
+NANOPARTICLE
+  Atoms
+    Au 0 0 0
+  End
+  AtomParam Au exp Au_jc
+  PBC
+    0 0 2.48
+  End
+ENDNANOPARTICLE
+
+METHOD
+  Interaction DDA
+  Frequency nm 545
+ENDMETHOD

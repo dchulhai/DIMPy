@@ -1,9 +1,10 @@
-
 from datetime import datetime
 import os
+import re
 import socket
 import sys
 
+from input_reader import Namespace
 import numpy as np
 
 from ._version import __version__
@@ -56,7 +57,7 @@ class Output(object):
             self.file.close()
 
 def print_welcome(output=print):
-    """Prints the welcome on top of the output file."""
+    """Print the welcome on top of the output file."""
 
     # title and authors
     title = ' D I S C R E T E   I N T E R A C T I O N   M O D E L   F O R'\
@@ -206,4 +207,41 @@ def print_efficiencies(qAbs, qScat, qExt, cAbs, cScat, cExt, output=print):
            '      cScat        cExt')
     output(f'    {qAbs:11.4e} {qScat:11.4e} {qExt:11.4e} {cAbs:11.4e}'
            f' {cScat:11.4e} {cExt:11.4e}')
+    output()
+
+def print_input_file(input_options, output=print):
+    """Print a copy of the input file."""
+    def print_namespace(namespace, space=False, output=print):
+        for key in namespace:
+            attr = getattr(namespace, key)
+            if attr is not None:
+
+                if isinstance(attr, str):
+                    output (key.upper(), attr)
+                elif isinstance(attr, bool) and attr:
+                    output (key.upper())
+                elif isinstance(attr, Namespace):
+                    output (key.upper())
+                    print_namespace(attr, output=output)
+                    output ('END')
+                elif isinstance(attr, int) or isinstance(attr, float):
+                    if attr != 0:
+                        output (key.upper(), attr)
+                elif isinstance(attr, tuple):
+                    if 'freq' in key:
+                        string = key.upper() + ' ' + attr[0]
+                        for i in range(len(attr)-1):
+                            string = string + ' ' + str(attr[i+1])
+                        output (string)
+                    else:
+                        for i in range(len(attr)):
+                            if isinstance(attr[i], re.Match):
+                                output (attr[i].group(0))
+                            else:
+                                output (key.upper() + ' ' + str(attr[i]))
+                if space:
+                    output ()
+
+    print_header('Input File', output=output)
+    print_namespace(input_options, space=False, output=output)
     output()

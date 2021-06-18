@@ -1,0 +1,12 @@
+TITLE DDA with retardation
+
+NANOPARTICLE
+  XYZFile Au_147_ico.xyz
+  AtomParam Au exp Au_jc
+ENDNANOPARTICLE
+
+METHOD
+  Interaction DDA
+  Frequency nm 545
+  Kdir x
+ENDMETHOD

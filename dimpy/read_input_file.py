@@ -1,164 +1,241 @@
+import os
 import re
 
-from .constants import NOCONV, ANGSTROM2BOHR, ELEMENTS
+from input_reader import InputReader
+import numpy as np
+
+from .constants import EV2HART, NM2HART, HZ2HART, WAVENUM2HART
+from .constants import ELEMENTS, NOCONV, HART2NM, BOHR2NM
+from .constants import HART2EV, HART2WAVENUM, HART2HZ
+from .constants import ANGSTROM2BOHR, ELEMENTS
+from .dimpy_error import DIMPyError
 
 
-def read_input_file(input_filename):
-    """Reads information from a formatted input file."""
+class ReadInput(object):
+    """Read information from a formatted DIMPy input file
+    using non-standard module :mod:`input_reader`
 
-    from input_reader import InputReader
+    :param filename: DIMPy input filename to read
+    :type filename: str, optional
 
-    # Initializes reader for a DIMPy input
-    # Valid comment characters are `::`, `#`, `!`, and `//`
-    reader = InputReader(comment=['!', '#', '::', '//'],
-             case=False, ignoreunknown=True)
+    **Examples**::
 
-    #####################
-    # Some general keys #
-    #####################
-    reader.add_line_key('title', type=[], glob={'len': '*', 'join': True, },
-                        case=True)
-    # TODO: debug currently does nothing
-    reader.add_boolean_key('debug', action=True, default=False)
+    >>> from dimpy import ReadInput
+    >>> input_options = ReadInput('filename.dimpy').read()
 
-    ####################
-    # Solver algorithm #
-    ####################
-    # These algorithms are all found in the `scipy.sparse.linalg` module
-    algorithms = ('spsolve', 'spsolve_triangular', 'bicg', 'bicgstab',
-                  'cg', 'cgs', 'gmres', 'lgmres', 'minres', 'qmr', 'direct')
-    reader.add_line_key('algorithm', type=algorithms, default='spsolve')
+    **or**::
 
-    reader.add_line_key('niter', type=int, default=0)
-    reader.add_line_key('grid', type=(3, 5, 7, 9, 11,
-                                      'extracoarse', 'coarse', 'medium',
-                                      'fine', 'extrafine'), default=7)
-    reader.add_line_key('atomspercell', type=int, default=4)
-    reader.add_boolean_key('coorddepend', action=True, default=False)
+    >>> from dimpy import ReadInput
+    >>> input_options = ReadInput().read('filename.dimpy')
 
-    # k-vector direction (when present, this is a retardation calculation)
-    reader.add_line_key('kdir', type=('x', 'y', 'z'), default=None)
+    """
 
-    #define media refactive index and scale factor for bulk plasma osillation
-    reader.add_line_key('nsolv', type=float, default=1.0)
-    reader.add_line_key('gfactor', type=float, default=7.0)
+    def __init__(self, filename=None):
+        """Initialize the class."""
 
-    # TODO: noninteracting currently does nothing
-    reader.add_boolean_key('noninteracting', action=True, default=False)
-    reader.add_boolean_key('bohr', action=NOCONV, default=ANGSTROM2BOHR,
-                           dest='distconv')
-    reader.add_line_key('tolerance', type=float, dest='tol', default=1.0E-6)
-    reader.add_boolean_key('dda', action=True, default=False)
-    reader.add_boolean_key('noprecon', dest='precon', action=False,
-                           default=True)
-    reader.add_line_key('precon', type=('none', 'perfect', 'jacobi', float),
-                        default='none')
-    reader.add_line_key('direction', glob={'len':'*'}, default=None)
+        self.filename = filename
 
-    volume = reader.add_mutually_exclusive_group()
-    volume.add_line_key('volume', type=float, default=-1.0)
-    volume.add_line_key('multiplier', type=[float, float, float],
-                        default=(1.0, 0.5, 1.0))
-    reader.add_line_key('scscale', type=float, default=1.0)
+        # Initializes reader for a DIMPy input
+        # Valid comment characters are `::`, `#`, `!`, and `//`
+        reader = InputReader(comment=['!', '#', '::', '//'],
+                             case=False, ignoreunknown=True)
 
-    ####################
-    # Printing control #
-    ####################
-    reader.add_line_key('printlevel', type=(0, 1, 2, 3), default=0)
-    reader.add_line_key('print', type=('atmdip', 'coords', 'energy',
-                                       'pol', 'timing', 'timingverbose',
-                                       'timingveryverbose',
-                                       'input', 'eff'), repeat=True)
-    reader.add_line_key('noprint', type=('atmdip', 'coords', 'energy',
-                                         'pol', 'timing', 'timingverbose',
-                                         'timingveryverbose',
-                                         'input', 'eff'), repeat=True)
+        reader.add_line_key('title', type=[], glob={'len': '*', 'join': True, },
+                            case=True)
 
-    # The calculation mode (PIM vs CPIM)
-    # TODO: CPIM not implemented
-    mode = reader.add_mutually_exclusive_group(required=True)
-    mode.add_boolean_key('cpim', action=True, default=False)
-    mode.add_boolean_key('pim', action=True, default=False)
-   
-    # Keys that depend on CPIM
-    reader.add_boolean_key('nopol', action=True, default=False, depends='cpim')
-    reader.add_boolean_key('nochar', action=True, default=False,
-                           depends='cpim')
-    reader.add_boolean_key('nocross', action=True, default=False,
-                           depends='cpim')
-    reader.add_line_key('totalcharge', type=float, default=0.0, depends='cpim')
+        # debug and verbose keys
+        reader.add_boolean_key('debug', action=True, default=False)
+        reader.add_line_key('verbose', type=int, default=2)
 
-    # Frequency control
-    freq = reader.add_mutually_exclusive_group()
-    freq.add_line_key('frequency',
-                      type=('ev', 'nm', 'hz', 'cm-1', 'hartree', 'au'),
-                      glob={'len': '+', 'type': float})
-    freq.add_line_key('freqrange',
-                      type=[('ev', 'nm', 'hz', 'cm-1', 'hartree', 'au'),
-                            float, float, int])
+        self.reader = reader
 
-    ##################################
-    # The elemental parameter blocks #
-    ##################################
-    unitglob = {'len': '?',
-                'type': ('ev', 'hz', 'cm-1', 'hartree', 'au'),
-                'default': 'hartree'}
-    for el in ELEMENTS:  # Elements defined from constants module
-        e = reader.add_block_key(el)
-        die_or_pol = e.add_mutually_exclusive_group()
-        die_or_pol.add_boolean_key('dielectric', action=True, default=False)
-        die_or_pol.add_boolean_key('polarizability', action=True, default=False)
+        self._check_nanoparticle_block()
+        self._check_method_block()
 
-        # define the coordination dependent element, element binding to plasmonics, and the minimal and maximal radii of the bonds
-        e.add_boolean_key('coorddepend', action=True, default=False)
-        e.add_boolean_key('binding', action=True, default=False)
-        e.add_boolean_key('static', action=True, default=False)
-        e.add_line_key('romin',  type=float, default=2.5)
-        e.add_line_key('romax',  type=float, default=3.5)
+    def _check_nanoparticle_block(self):
+        """Add the nanoparticle block keys."""
+        reader = self.reader
 
-        e.add_line_key('pol',   type=float)
-        e.add_line_key('cap',   type=float)
-        e.add_line_key('om1',   type=float)
-        e.add_line_key('om2',   type=float)
-        e.add_line_key('gm1',   type=float)
-        e.add_line_key('gm2',   type=float)
-        e.add_line_key('size',  type=float)
-        e.add_line_key('rad',   type=float, required=True)
-        e.add_line_key('rmin',  type=float, default=3,)
-        e.add_line_key('rmax',  type=float, default=5)
-        e.add_line_key('rsurf', type=float, default=2.2)
-        e.add_line_key('rbulk', type=float, default=1.4445)
-        e.add_line_key('cnmax',  type=float,   default=12)
-        e.add_line_key('exp',   type=str, case=True, default=None)
-        e.add_line_key('bound', type=float, default=1.0)
-        e.add_line_key('sc',    type=float, default=-110)
-        e.add_line_key('wpin',  type=float, default=1)
-        e.add_line_key('drude', type=[float, float],
-                       glob=unitglob)
-        e.add_line_key('lrtz',  type=[float, float, float], repeat=True,
-                       glob=unitglob)
-        e.add_line_key('lrtz1', type=[float, float, float], repeat=True,
-                       glob=unitglob)
-        e.add_line_key('lrtz2', type=[float, float, float, float], repeat=True,
-                       glob=unitglob)
-        e.add_line_key('lrtz3', type=[float, float, float], repeat=True,
-                       glob=unitglob)
-        e.add_line_key('fermi', type=float, default=0.0, depends='drude')
-        e.add_line_key('spillout', type=float, default=0.0)
+        # initialize the nanoparticle block in the input file
+        nano = reader.add_block_key('nanoparticle', end='endnanoparticle',
+                                    ignoreunknown=True, required=True, case=False)
 
-    ################################
-    # Periodic Boundary Conditions #
-    ################################
-    pbc_string = re.compile(r"""
-                             \s*
-                             ((?i)pbc)
-                             (\s+[0-9.]+)
-                             (\s+[0-9.]+)?
-                             (\s+[0-9.]+)?
-                             """, re.VERBOSE)
-    reader.add_regex_line('pbc', pbc_string)
+        # read in coords either explicitly or via an xyz file
+        coords = nano.add_mutually_exclusive_group(required=True)
+        coords.add_line_key('xyzfile', type=str, case=True)
+        atoms = coords.add_block_key('atoms')
+        coord = re.compile(r"""
+                             \s*           # Leading whitespace
+                             \d*           # Atomic ## (optional)
+                             .*            # Separator
+                             ([A-Z][a-z]?) # The element
+                             \s+           # Whitespace
+                             ([-0-9.]+)    # X coord
+                             \s+           # etc...
+                             ([-0-9.]+)
+                             \s+
+                             ([-0-9.]+)
+                            """, re.VERBOSE)
+        atoms.add_regex_line('coords', coord, repeat=True)
 
-    # Read the input and return the options read in
-    input_options = reader.read_input(input_filename)
-    return input_options
+        # Periodic Boundary Conditions
+        pbc = nano.add_block_key('pbc')
+        pbc.add_regex_line('vector',
+                           '\s*(\-?\d+.?\d*)\s+(\-?\d+.?\d*)\s+(\-?\d+.?\d*)',
+                           repeat=True)
+
+        # coordinate / pbc lattice units
+        nano.add_line_key('unit', type=('bohr', 'au', 'b', 'a', 'ang',
+                          'angstrom'), default='angstrom')
+
+        # Atom parameters
+        # is of the form 'ATOMPARAM Xx KEY ##.###'
+        nano.add_line_key('atomparam', repeat=True, case=True,
+                          type=[re.compile(r'[A-z][a-z]?', re.VERBOSE),
+                                ('rad', 'exp'),
+                                re.compile(r'\S+', re.VERBOSE)])
+
+    # define solvers here
+    solvers = ('direct', 'solve', 'bicg', 'bicgstab',
+               'cgs', 'gmres', 'lgmres', 'qmr', 'gcrotmk')
+    """Available options for the 'Solver' key in the DIMPy input."""
+
+    def _check_method_block(self):
+        """Add the calculation block keys."""
+        reader = self.reader
+
+        # initialize the method block in the input file
+        method = reader.add_block_key('method', end='endmethod',
+                                      ignoreunknown=True, required=True)
+
+        # DIM or DDA?
+        method.add_line_key('interaction', type=('dda', 'dim'), required=True)
+
+        # k-vector direction (when present, this is a retardation calculation)
+        method.add_line_key('kdir', type=('x', 'y', 'z'), default=None)
+
+        # Frequency control
+        freq = method.add_mutually_exclusive_group()
+        freq.add_line_key('frequency',
+                          type=('ev', 'nm', 'hz', 'cm-1', 'hartree', 'au'),
+                          glob={'len': '+', 'type': float})
+        freq.add_line_key('freqrange',
+                          type=[('ev', 'nm', 'hz', 'cm-1', 'hartree', 'au'),
+                                float, float, int])
+
+        # Solver algorithm
+        # These algorithms are all found in the `scipy.sparse.linalg` module
+        method.add_line_key('solver', type=self.solvers, default='gcrotmk')
+
+    def _read_nanoparticle_block(self, input_options=None):
+        """Read the nanoparticle block in a DIMPy input file."""
+        if input_options is None:
+            input_options = self.input_options
+        options = input_options.nanoparticle
+
+        # read atom_params
+        atom_params = {}
+        params = options.atomparam
+        if params is not None:
+            for i in range(len(params)):
+                atom = params[i][0].capitalize()
+                key = params[i][1]
+                value = list(params[i][2:])
+                if len(value) == 1:
+                    try:
+                        value = float(value[0])
+                    except ValueError:
+                        value = value[0]
+                else:
+                    for j in range(len(value)):
+                        try:
+                            value[j] = float(value[j])
+                        except ValueError:
+                            pass
+                try:
+                    atom_params[atom][key] = value
+                except KeyError:
+                    atom_params[atom] = {key: value}
+        options.atom_params = atom_params
+
+        # set pbc
+        if options.pbc is not None:
+            lattice = []
+            for r in options.pbc.vector:
+                lattice.append(np.array([r.group(1), r.group(2),
+                    r.group(3)], dtype=float))
+            options.pbc = np.array(lattice, dtype=np.float32)
+
+        # format the atoms to be used by the nanoparticle
+        if options.atoms is not None:
+
+            coords = options.atoms.coords
+            atoms = [[coord.group(1), [float(coord.group(i)) for i in range(2,5)]]
+                     for coord in coords]
+            options.atoms = atoms
+
+        else:
+            options.atoms = options.xyzfile
+
+    def _read_method_block(self, input_options=None):
+        """Read the frequency from a DIMPy input file and convert
+        to atomic units.
+        """
+
+        if input_options is None:
+            input_options = self.input_options
+        options = input_options.method
+
+        conversion = {'ev': EV2HART,
+                      'nm': NM2HART,
+                      'hz': HZ2HART,
+                      'cm-1': WAVENUM2HART,
+                      'hartree': NOCONV,
+                      'au': NOCONV}
+
+        # convert individually given frequency
+        if options.frequency is not None:
+            convert = conversion[options.frequency[0]]
+            freqs = []
+            for freq in options.frequency[1:]:
+                freqs.append(convert(freq))
+            freqs = np.array(freqs, dtype=float)
+
+        # expand the frequency range and convert appropriately
+        elif options.freqrange is not None:
+            convert = conversion[options.freqrange[0]]
+            start, stop, num = options.freqrange[1:]
+            freqs = convert(np.linspace(start, stop, num))
+            freqs = np.sort(freqs) # sort in order of increasing energy
+
+        # assume this is a static frequency
+        else:
+            freqs = np.zeros((1))
+
+        options.freqs = freqs
+
+    def read(self, filename=None):
+        """Read the input and return the input option.
+
+        :param filename: DIMPy input filename to read
+        :type filename: str, optional
+
+        :returns: ``input_reader`` object with input options
+
+        """
+        if filename is None:
+            filename = self.filename
+        # first check that file exists
+        if filename is None:
+            raise DIMPyError('No DIMPy input filename given!')
+        elif not os.path.isfile(filename):
+            raise DIMPyError(f'File `{filename}` does not exist!')
+
+        reader = self.reader
+        self.filename = filename
+        self.input_options = reader.read_input(filename)
+        self._read_nanoparticle_block()
+        self._read_method_block()
+
+        return self.input_options
 
