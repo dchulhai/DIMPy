@@ -8,6 +8,8 @@ from .timer import check_time
 
 class DIMs(CalcMethod):
 
+    interaction = 'DIM'
+    """Interaction type for this class."""
 
     @property
     @check_memory

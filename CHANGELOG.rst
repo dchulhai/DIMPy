@@ -14,7 +14,7 @@ Unreleased
 - DIM with PBC and retardation
 - DIM/QM with PySCF
 
-[0.5.0] - 2021-06-??
+[0.5.0] - 2021-06-18
 ####################
 
 Added

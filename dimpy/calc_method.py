@@ -88,29 +88,32 @@ class CalcMethod(object):
         """Initialize the DIMPy class."""
 
         # use the nanoparticle attributes
-        self.nanoparticle = nanoparticle
-        if output_filename is None:
-            self.output_filename = nanoparticle.output_filename
+        try:
+            self.nanoparticle = nanoparticle
+            if output_filename is None:
+                self.output_filename = nanoparticle.output_filename
+                self.out = nanoparticle.out
+            else:
+                self.output_filename = output_filename
+                self.out = Output(filename=output_filename)
+            if verbose is None:
+                self.verbose = nanoparticle.verbose
+            else:
+                self.verbose = verbose
+            if debug is None:
+                self.debug = nanoparticle.debug
+            else:
+                self.debug = debug
             self.out = nanoparticle.out
-        else:
-            self.output_filename = output_filename
-            self.out = Output(filename=output_filename)
-        if verbose is None:
-            self.verbose = nanoparticle.verbose
-        else:
-            self.verbose = verbose
-        if debug is None:
+            self.log = nanoparticle.log
+            self._memory = nanoparticle._memory
+            self._timer = nanoparticle._timer
             self.debug = nanoparticle.debug
-        else:
-            self.debug = debug
-        self.out = nanoparticle.out
-        self.log = nanoparticle.log
-        self._memory = nanoparticle._memory
-        self._timer = nanoparticle._timer
-        self.debug = nanoparticle.debug
-        self.pbc = nanoparticle.pbc
-        self.title = title
-        self.natoms = self.nanoparticle.natoms
+            self.pbc = nanoparticle.pbc
+            self.natoms = self.nanoparticle.natoms
+        except AttributeError:
+            raise DIMPyError('AtributeError: Did you forget to `.build()`'
+                             'the Nanoparticle object?')
 
         start_time = self._timer.startTimer('CalcMethod.__init__')
         if self.verbose > 0 or self.debug:
@@ -172,6 +175,9 @@ class CalcMethod(object):
                      '{0:.3f} seconds'.format(end_time[1]),
                      time=end_time[0])
 
+    interaction = 'DDA'
+    """Interaction type for this class."""
+
     @property
     def wavelength_nm(self):
         """Frequencies as wavelengths in nm."""
@@ -184,18 +190,12 @@ class CalcMethod(object):
 
         print_header('Calculation Information', output)
         output(f'Title             : {self.title}')
-#        interaction = 'DIM'
-#        if self._input_options.dda:
-#            interaction = 'DDA'
-#        output(f'Interaction type  : {interaction}')
-#        model = 'PIM'
-#        if self._input_options.cpim:
-#            model = 'CPIM'
-#        output(f'Interaction model : {model}')
+        output(f'Interaction type  : {self.interaction}')
         approx = 'Quasi-static approximation'
         if self.kdir is not None:
             approx = f'k = {self.kdir}'
         output(f'Wave vector       : {approx}')
+        output(f'Solver            : {self.solver}')
         output()
 
 
@@ -577,10 +577,6 @@ class CalcMethod(object):
         if self.verbose > 1 or self.debug:
             self.print_calc_information()
             self.nanoparticle.print_nanoparticle()
-
-        # generate the interaction tensors
-        if self._t2 is None:
-            trash = self.t2
 
         # temporarily hole the atomic dipoles here for
         # restart when calculating multiple frequencies

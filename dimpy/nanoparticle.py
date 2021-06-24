@@ -78,8 +78,8 @@ class Nanoparticle(object):
     :cvar atomic_radii: Radius of each atom
     :vartype atomic_radii: numpy.ndarray
 
-    :cvar atomic_static_polarizabilities: Static polarizability of each atom
-    :vartype atomic_static_polarizabilities: numpy.ndarray
+    :cvar static_polarizabilities: Static polarizability of each atom
+    :vartype static_polarizabilities: numpy.ndarray
 
     Example with explicitly passing in the atoms as a string::
 
@@ -128,7 +128,7 @@ class Nanoparticle(object):
         self.output_filename = output_filename
         self.log_filename = log_filename
         if pbc is not None:
-            self.pbc = np.array(pbc, dtype=np.float32)
+            self.pbc = np.array(pbc, dtype=np.float32) * self._distconv
         else:
             self.pbc = None
         self.xyz_filename = None
@@ -222,7 +222,7 @@ class Nanoparticle(object):
         # set the coordinates
         self.coordinates = np.array([[atom.group(i) for i in range(2,5)]
                                   for atom in options.coords], dtype=np.float32)
-        self.coordinates *= self._distconv
+        self.coordinates *= ANGSTROM2BOHR(1) # .xyz file always in Angstrom
 
 
     @check_memory(log='debug')
@@ -500,26 +500,32 @@ class Nanoparticle(object):
         output(f'XYZ file     : {self.xyz_filename}')
         output()
 
-        # atomic properties
-        string = 'Atom Type '
-        printable_params = ['rad', 'exp', 'others']
-        params_to_print = []
-        for atom in self.atom_params.keys():
-            for key in self.atom_params[atom]:
-                if key in printable_params and not key in params_to_print:
-                    params_to_print.append(key)
-                    string = string + key.center(10)
+        # periodic boundary conditions lattice vectors
+        if self.pbc is not None:
+            string = 'Periodic Lattice Vector(s)'
+            output(string)
+            output('-'*len(string))
+            for i in range(len(self.pbc)):
+                string = (f'{self.pbc[i,0]:8.4f} {self.pbc[i,1]:8.4f} '
+                          f'{self.pbc[i,2]:8.4f}')
+                output(string)
+        output()
+
+        # atomic parameters
+        string = 'Atom Parameter Value(s)   '
         output(string)
         output('-'*len(string))
-        string = ''
-        for atom in unique_atoms:
-            string += atom.ljust(10)
-            for key in params_to_print:
-                if key in self.atom_params[atom].keys():
-                    string += ('{0}'.format(self.atom_params[atom][key])).center(10)
+
+        for atom in self.atom_params:
+            for key in self.atom_params[atom]:
+                value = self.atom_params[atom][key]
+                string = f'{atom:<2s}    {key:<9s} '
+                if isinstance(value, (int, float)):
+                    string = string + f'{value}'
                 else:
-                    string += '---'.center(10)
-        output(string)
+                    for i in range(len(value)):
+                        string = string + f'{value[i]}'
+                output(string)
         output()
 
         # print the volume
