@@ -107,7 +107,7 @@ The general ``NANOPARTICLE`` block is
 
             Atoms
               atom1 x1 y1 z1
-              atom2 x2 y2 z1
+              atom2 x2 y2 z2
               ...
             End
 
@@ -235,7 +235,7 @@ The general ``METHOD`` block is
         (separated by spaces) as needed, though specifying more than one frequency
         this way is optional.
 
-    2.  Alternatively, you may also specify a range of frequencies using
+    2.  Alternatively, you may specify a range of frequencies using
 
         .. code-block:: console
 
@@ -309,7 +309,7 @@ functionalities:
 
 *   ``DEBUG`` - This will print additional timing and memory information into
     both the output and log files. This will also print the most verbose output
-    and it overrides options for ``PRINT`` and ``NOPRINT`` (below).
+    and it overrides any choice for ``VERBOSE`` (below).
 
 *   ``VERBOSE <num>`` - This determines how much information is included in the
     output file. This keyword is ignored if ``DEBUG`` is given.
@@ -326,7 +326,7 @@ functionalities:
         printed at this level.
 
     *   ``4`` - Even more information is printed. ``VERBOSE 4`` is almost
-        the same as ``DEBUG``, with the exception of printing additional
+        the same as ``DEBUG``, without printing additional
         timing and memory information.
 
 Examples
