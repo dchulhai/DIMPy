@@ -1,20 +1,20 @@
 import numpy as np
 import scipy as sp
 
-from .calc_method import CalcMethod
-from .constants import HART2NM, NM2BOHR
-from .memory import check_memory
-from .method_dynamic_dda import DDAr
-from .method_static_dda_pbc import DDAsPBC
-from .timer import check_time
+from .base import CalcMethodBase
+from ..tools.constants import HART2NM, NM2BOHR
+from ..tools.memory import check_memory
+from .dynamic_dda import DDAr
+from .static_dda_pbc import DDAsPBC
+from ..tools.timer import check_time
 
-class DDArPBC(CalcMethod):
+class DDArPBC(CalcMethodBase):
     """A discrete dipole approximation (DDA) method with
     field retardation effections and periodic boundary conditions.
 
     The changed methods are: :meth:`A_matrix` and :meth:`_get_Einc`
 
-    See :class:`dimpy.calc_method.CalcMethod` for full documentation.
+    See :class:`dimpy.methods.base.CalcMethodBase` for full documentation.
 
     """
 

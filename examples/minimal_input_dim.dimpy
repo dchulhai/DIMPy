@@ -1,0 +1,10 @@
+NANOPARTICLE
+  Atoms
+    Ag 0 0 0
+    Ag 0 0 1.89
+  End
+ENDNANOPARTICLE
+
+METHOD
+  Interaction DIM
+ENDMETHOD

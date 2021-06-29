@@ -3,15 +3,15 @@ from numpy import linalg
 import scipy as sp
 from scipy import spatial
 
-from .calc_method import CalcMethod
-from .memory import check_memory
-from .timer import check_time
+from .base import CalcMethodBase
+from ..tools.memory import check_memory
+from ..tools.timer import check_time
 
-class DDAsPBC(CalcMethod):
+class DDAsPBC(CalcMethodBase):
     """A static (without retardation effects) discrete dipole
     approximation (DDA) method for periodic nanoparticles.
 
-    See :class:`dimpy.calc_method.CalcMethod` for full documentation.
+    See :class:`dimpy.methods.base.CalcMethodBase` for full documentation.
 
     **Example:** (this is the same as running the example in
     ``DIMPy/examples/gold_chain_dda.dimpy``::

@@ -1,18 +1,18 @@
 import numpy as np
 import scipy as sp
 
-from .calc_method import CalcMethod
-from .constants import HART2NM, NM2BOHR
-from .memory import check_memory
-from .timer import check_time
+from .base import CalcMethodBase
+from ..tools.constants import HART2NM, NM2BOHR
+from ..tools.memory import check_memory
+from ..tools.timer import check_time
 
-class DDAr(CalcMethod):
+class DDAr(CalcMethodBase):
     """A discrete dipole approximation (DDA) method with
     field retardation effections.
 
     The changed methods are: :meth:`A_matrix` and :meth:`_get_Einc`
 
-    See :class:`dimpy.calc_method.CalcMethod` for full documentation.
+    See :class:`dimpy.methods.base.CalcMethodBase` for full documentation.
 
     **Example:** (same as ``DIMPy/examples/method_dda_retardation.dimpy``::
 
@@ -80,10 +80,11 @@ class DDAr(CalcMethod):
 
         # get off-diagonal terms
         for a in range(3):
-            A_matrix[:,a,:,a] -= fac0 * self.t0
+            A_matrix[:,a,:,a] = A_matrix[:,a,:,a] - fac0 * self.t0
             for b in range(3):
-                A_matrix[:,a,:,b] -= fac1[:,:,a] * self.t1[:,:,b]
-        A_matrix -= fac2[:,np.newaxis,:,np.newaxis] * self.t2
+                A_matrix[:,a,:,b] = ( A_matrix[:,a,:,b] - fac1[:,:,a]
+                                    * self.t1[:,:,b] )
+        A_matrix = A_matrix - fac2[:,np.newaxis,:,np.newaxis] * self.t2
 
         # diagonal terms is the inverse polarizability
         pol_inv = 1 / self.nanoparticle.atomic_polarizabilities(omega)
@@ -112,6 +113,7 @@ class DDAr(CalcMethod):
             k = 2 * np.pi / NM2BOHR(HART2NM(omega))
             kvec = np.zeros((3), dtype=np.float32)
             kvec[self.kdir] = k
+            print (kvec)
 
             # calculate k_dot_r
             k_dot_r = np.dot(self.nanoparticle.coordinates, kvec)

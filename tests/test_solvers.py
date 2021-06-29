@@ -65,4 +65,5 @@ for solver in dimpy.ReadInput.solvers:
     setattr(TestMethods, test.__name__, test)
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(warnings="ignore")
+

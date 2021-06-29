@@ -4,11 +4,11 @@ import re
 from input_reader import InputReader
 import numpy as np
 
-from .constants import EV2HART, NM2HART, HZ2HART, WAVENUM2HART
-from .constants import ELEMENTS, NOCONV, HART2NM, BOHR2NM
-from .constants import HART2EV, HART2WAVENUM, HART2HZ
-from .constants import ANGSTROM2BOHR, ELEMENTS
-from .dimpy_error import DIMPyError
+from ..tools.constants import EV2HART, NM2HART, HZ2HART, WAVENUM2HART
+from ..tools.constants import ELEMENTS, NOCONV, HART2NM, BOHR2NM
+from ..tools.constants import HART2EV, HART2WAVENUM, HART2HZ
+from ..tools.constants import ANGSTROM2BOHR, ELEMENTS
+from ..dimpy_error import DIMPyError
 
 
 class ReadInput(object):

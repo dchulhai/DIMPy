@@ -5,21 +5,21 @@ import numpy as np
 import scipy as sp
 from scipy import spatial
 
-from .calc_method import CalcMethod
-from .constants import HART2NM
-from .dimpy_error import DIMPyError
-from .memory import Memory
-from .nanoparticle import Nanoparticle
-from .printer import Output
-from .timer import Timer
-from ._version import __version__
+from ..methods.base import CalcMethodBase
+from ..tools.constants import HART2NM
+from ..dimpy_error import DIMPyError
+from ..tools.memory import Memory
+from ..nanoparticle import Nanoparticle
+from ..tools.printer import Output
+from ..tools.timer import Timer
+from .._version import __version__
 
 class Analyzer(object):
-    """Read and analyze the information from a DIMPy output file.
+    r"""Read and analyze the information from a DIMPy output file.
 
     :param filename_or_calc: The DIMPy input or output filename as 
-        a string or a :class:`dimpy.calc_method.CalcMethod` object
-    :type filename_or_calc: str or :class:`dimpy.calc_method.CalcMethod`
+        a string or a :class:`dimpy.methods.base.CalcMethodBase` object
+    :type filename_or_calc: str or :class:`dimpy.methods.base.CalcMethodBase`
 
     :param log_filename: Log filename to print any information to,
         defaults to ``std.out``
@@ -28,16 +28,16 @@ class Analyzer(object):
     :param debug: Whether to print debug statements, default False
     :type debug: bool, optional
 
-    :cvar calculation: :class:`dimpy.calc_method.CalcMethod` object
+    :cvar calculation: :class:`dimpy.methods.base.CalcMethodBase` object
 
-    :cvar nanoparticle: :class:`dimpy.nanoparticle.Nanoparticle` onject
+    :cvar nanoparticle: :class:`dimpy.nanoparticle.nanoparticle.Nanoparticle` object
 
     """
 
     def __init__(self, filename_or_calc, log_filename=None, debug=False,
                   verbose=2):
         """Initialize the analyzer object given a filename or
-        :class:`dimpy.calc_method.CalcMethod` object.
+        :class:`dimpy.methods.CalcMethodBase` object.
         """
 
         # set up some initializations here
@@ -45,7 +45,7 @@ class Analyzer(object):
         self.debug = debug
         self.verbose = verbose
 
-        if isinstance(filename_or_calc, CalcMethod):
+        if isinstance(filename_or_calc, CalcMethodBase):
 
             self.calculation  = filename_or_calc
             self.nanoparticle = self.calculation.nanoparticle
@@ -68,7 +68,7 @@ class Analyzer(object):
             self._collect_from_filename(output_filename)
 
         else:
-            raise DIMPyError('Expected `CalcMethod` object or string!')
+            raise DIMPyError('Expected `CalcMethodBase` object or string!')
 
 
     def _collect_from_filename(self, output_filename):
@@ -257,8 +257,8 @@ class Analyzer(object):
                 freqs.append(f[ifreq].split()[1])
             freqs = np.array(freqs, dtype=float)
 
-        # create CalcMethod object
-        calc = CalcMethod(nanoparticle, freqs=freqs, title=title, kdir=kdir,
+        # create CalcMethodBase object
+        calc = CalcMethodBase(nanoparticle, freqs=freqs, title=title, kdir=kdir,
                           solver=solver, verbose=self.verbose,
                           debug=self.debug)
 
@@ -406,7 +406,7 @@ class Analyzer(object):
     def plot_fields(self, plane=('x', 0), field_dir='y', npoints=10000,
                     wavelength=500, emax=2, log_field=True, draw_atoms=True,
                     field_exp=1):
-        """Plot the fields along a plane for a particular indicent field
+        r"""Plot the fields along a plane for a particular indicent field
         direction. Uses :mod:`matplotlib`.
 
         :param plane: the plane to plot, given as a tuple. The first value of
@@ -438,7 +438,7 @@ class Analyzer(object):
             is True
         :type draw_atoms: bool, optional
 
-        :param field_exp: plot :math:`|E|^\\text{field_exp}`, default is 1
+        :param field_exp: plot :math:`|E|^\mathrm{field_exp}`, default is 1
         :type field_exp: int, optional
 
         """

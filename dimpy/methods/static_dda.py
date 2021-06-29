@@ -1,13 +1,13 @@
-from .calc_method import CalcMethod
+from .base import CalcMethodBase
 
-class DDAs(CalcMethod):
+class DDAs(CalcMethodBase):
     """A static (without retardation effects) discrete dipole
     approximation (DDA) method.
 
-    See :class:`dimpy.calc_method.CalcMethod` for full documentation.
+    See :class:`dimpy.methods.base.CalcMethodBase` for full documentation.
 
     **Example:** (this is the same as running the example in 
-    ``DIMPy/examples/minimal_input.dimpy``::
+    ``DIMPy/examples/minimal_input_dda.dimpy``::
 
         >>> import dimpy
         >>> nano = dimpy.Nanoparticle('Ag 0 0 0; Ag 0 0 1.89', verbose=0)

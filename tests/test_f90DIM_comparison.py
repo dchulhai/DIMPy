@@ -85,9 +85,9 @@ class TestMethods(unittest.TestCase):
         calc = self._run_input(dimpy_input)
 
         self.assertAlmostEqual(calc.isotropic_polarizabilities[0].real,
-                               -2840.20, places=2)
+                               -2840.20, places=1)
         self.assertAlmostEqual(calc.isotropic_polarizabilities[0].imag,
-                               4069.21, places=2)
+                               4069.21, places=1)
 
     def test_DDA_PBC_nofreq(self):
         dimpy_input = textwrap.dedent(
@@ -97,7 +97,7 @@ class TestMethods(unittest.TestCase):
           Ag 0 0 0
          End
          PBC
-          0 0 1.89
+          0 0 1
          End
          AtomParam Ag exp Ag_jc
         ENDNANOPARTICLE
@@ -121,7 +121,7 @@ class TestMethods(unittest.TestCase):
           Ag 0 0 0
          End
          PBC
-          0 0 1.89
+          0 0 1
          End
          AtomParam Ag exp Ag_jc
         ENDNANOPARTICLE
@@ -140,75 +140,75 @@ class TestMethods(unittest.TestCase):
         self.assertAlmostEqual(calc.isotropic_polarizabilities[0].imag,
                                0.30, places=2)
 
-#    def test_DIM_nofreq(self):
-#        dimpy_input = textwrap.dedent(
-#        """\
-#        NANOPARTICLE
-#         Atoms
-#          Ag  0.000000  0.000000  0.000000
-#          Ag  2.460139  0.000000 -1.520449
-#          Ag  2.460139  0.000000  1.520449
-#          Ag -2.460139  0.000000 -1.520449
-#          Ag -2.460139  0.000000  1.520449
-#          Ag -1.520449  2.460139  0.000000
-#          Ag  1.520449  2.460139  0.000000
-#          Ag -1.520449 -2.460139  0.000000
-#          Ag  1.520449 -2.460139  0.000000
-#          Ag  0.000000 -1.520449  2.460139
-#          Ag  0.000000  1.520449  2.460139
-#          Ag  0.000000 -1.520449 -2.460139
-#          Ag  0.000000  1.520449 -2.460139
-#         End
-#         AtomParam Ag exp Ag_jc
-#        ENDNANOPARTICLE
-#        VERBOSE 0
-#        METHOD
-#         Interaction DIM
-#         Solver direct
-#        ENDMETHOD
-#        """)
-#
-#        calc = self._run_input(dimpy_input)
-#
-#        self.assertAlmostEqual(calc.isotropic_polarizabilities[0],
-#                               623.01, places=2)
-#
-#    def test_DIM_freq(self):
-#        dimpy_input = textwrap.dedent(
-#        """\
-#        NANOPARTICLE
-#         Atoms
-#          Ag  0.000000  0.000000  0.000000
-#          Ag  2.460139  0.000000 -1.520449
-#          Ag  2.460139  0.000000  1.520449
-#          Ag -2.460139  0.000000 -1.520449
-#          Ag -2.460139  0.000000  1.520449
-#          Ag -1.520449  2.460139  0.000000
-#          Ag  1.520449  2.460139  0.000000
-#          Ag -1.520449 -2.460139  0.000000
-#          Ag  1.520449 -2.460139  0.000000
-#          Ag  0.000000 -1.520449  2.460139
-#          Ag  0.000000  1.520449  2.460139
-#          Ag  0.000000 -1.520449 -2.460139
-#          Ag  0.000000  1.520449 -2.460139
-#         End
-#         AtomParam Ag exp Ag_jc
-#        ENDNANOPARTICLE
-#        VERBOSE 0
-#        METHOD
-#         Interaction DIM
-#         Solver direct
-#         Frequency nm 350
-#        ENDMETHOD
-#        """)
-#
-#        calc = self._run_input(dimpy_input)
-#
-#        self.assertAlmostEqual(calc.isotropic_polarizabilities[0].real,
-#                               2446.42, places=2)
-#        self.assertAlmostEqual(calc.isotropic_polarizabilities[0].imag,
-#                               1601.71, places=2)
-#
+    def test_DIM_nofreq(self):
+        dimpy_input = textwrap.dedent(
+        """\
+        NANOPARTICLE
+         Atoms
+          Ag  0.000000  0.000000  0.000000
+          Ag  2.460139  0.000000 -1.520449
+          Ag  2.460139  0.000000  1.520449
+          Ag -2.460139  0.000000 -1.520449
+          Ag -2.460139  0.000000  1.520449
+          Ag -1.520449  2.460139  0.000000
+          Ag  1.520449  2.460139  0.000000
+          Ag -1.520449 -2.460139  0.000000
+          Ag  1.520449 -2.460139  0.000000
+          Ag  0.000000 -1.520449  2.460139
+          Ag  0.000000  1.520449  2.460139
+          Ag  0.000000 -1.520449 -2.460139
+          Ag  0.000000  1.520449 -2.460139
+         End
+         AtomParam Ag exp Ag_jc
+        ENDNANOPARTICLE
+        VERBOSE 0
+        METHOD
+         Interaction DIM
+         Solver direct
+        ENDMETHOD
+        """)
+
+        calc = self._run_input(dimpy_input)
+
+        self.assertAlmostEqual(calc.isotropic_polarizabilities[0],
+                               623.01, places=2)
+
+    def test_DIM_freq(self):
+        dimpy_input = textwrap.dedent(
+        """\
+        NANOPARTICLE
+         Atoms
+          Ag  0.000000  0.000000  0.000000
+          Ag  2.460139  0.000000 -1.520449
+          Ag  2.460139  0.000000  1.520449
+          Ag -2.460139  0.000000 -1.520449
+          Ag -2.460139  0.000000  1.520449
+          Ag -1.520449  2.460139  0.000000
+          Ag  1.520449  2.460139  0.000000
+          Ag -1.520449 -2.460139  0.000000
+          Ag  1.520449 -2.460139  0.000000
+          Ag  0.000000 -1.520449  2.460139
+          Ag  0.000000  1.520449  2.460139
+          Ag  0.000000 -1.520449 -2.460139
+          Ag  0.000000  1.520449 -2.460139
+         End
+         AtomParam Ag exp Ag_jc
+        ENDNANOPARTICLE
+        VERBOSE 0
+        METHOD
+         Interaction DIM
+         Solver direct
+         Frequency nm 350
+        ENDMETHOD
+        """)
+
+        calc = self._run_input(dimpy_input)
+
+        self.assertAlmostEqual(calc.isotropic_polarizabilities[0].real,
+                               2446.42, places=1)
+        self.assertAlmostEqual(calc.isotropic_polarizabilities[0].imag,
+                               1601.71, places=1)
+
 #    def test_DIM_PBC_nofreq(self):
 #        dimpy_input = textwrap.dedent(
 #        """\
@@ -261,4 +261,5 @@ class TestMethods(unittest.TestCase):
 #                               11.92, places=2)
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(warnings="ignore")
+

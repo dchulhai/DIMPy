@@ -7,7 +7,7 @@ import sys
 from input_reader import Namespace
 import numpy as np
 
-from ._version import __version__
+from .._version import __version__
 
 
 class Output(object):

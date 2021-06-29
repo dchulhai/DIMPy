@@ -29,14 +29,10 @@ How to cite:
 from .analyzer import Analyzer
 from .dimpy import run
 from .dimpy_error import DIMPyError
-from .method_dynamic_dda import DDAr
-from .method_dynamic_dda_pbc import DDArPBC
-from .method_static_dda import DDAs
-from .method_static_dda_pbc import DDAsPBC
-from .method_static_dim import DIMs
+from .input_file import ReadInput
+from .methods import DDAs, DDAsPBC, DDAr, DDArPBC
+from .methods import DIMs
 from .nanoparticle import Nanoparticle
-from .printer import Output
-from .read_input_file import ReadInput
 from ._version import __version__
 
 __package__ = 'dimpy'

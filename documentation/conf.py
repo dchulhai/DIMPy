@@ -29,9 +29,10 @@ copyright = '2021, Dhabih V. Chulhai'
 author = 'Dhabih V. Chulhai'
 
 # The short X.Y version
+import dimpy
 version = ''
 # The full version, including alpha/beta/rc tags
-release = '0.3.0'
+release = dimpy.__version__
 
 
 # -- General configuration ---------------------------------------------------

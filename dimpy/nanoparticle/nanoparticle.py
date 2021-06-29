@@ -8,14 +8,13 @@ import numpy as np
 import scipy as sp
 from scipy import interpolate, spatial
 
-from .constants import ELEMENTS, elemset as ELEMSET, atomic_mass, atomic_radius, \
+from ..tools.constants import ELEMENTS, elemset as ELEMSET, atomic_mass, atomic_radius, \
                        ANGSTROM2BOHR, HART2NM, BOHR2NM
-from .dimpy_error import DIMPyError
-from .memory import Memory, check_memory
-from .printer import Output, print_header
-#from .read_input_file import read_input_file
-from .read_input_file import ReadInput
-from .timer import Timer, check_time
+from ..dimpy_error import DIMPyError
+from ..tools.memory import Memory, check_memory
+from ..tools.printer import Output, print_header
+from ..input_file import ReadInput
+from ..tools.timer import Timer, check_time
 
 
 class Nanoparticle(object):
@@ -401,7 +400,7 @@ class Nanoparticle(object):
 
         # get the experimental dielectric file and open it
         abs_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
-                             'dielectrics', die_file)
+                             '../../data/dielectrics', die_file)
         exp_data = np.loadtxt(abs_file, unpack=True)
 
         # interpolate the data

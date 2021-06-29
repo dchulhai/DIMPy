@@ -6,26 +6,26 @@ import scipy as sp
 from scipy import linalg, sparse
 from scipy.sparse import linalg
 
-from .constants import HART2NM, BOHR2NM
-from .constants import HART2EV, HART2WAVENUM, HART2HZ
-from .dimpy_error import DIMPyError
-from .memory import check_memory
-from .printer import Output, print_atomic_dipoles
-from .printer import print_efficiencies
-from .printer import print_welcome, print_energy, print_header
-from .printer import print_polarizability, print_input_file
-from .timer import Timer, check_time
+from ..tools.constants import HART2NM, BOHR2NM
+from ..tools.constants import HART2EV, HART2WAVENUM, HART2HZ
+from ..dimpy_error import DIMPyError
+from ..tools.memory import check_memory
+from ..tools.printer import Output, print_atomic_dipoles
+from ..tools.printer import print_efficiencies
+from ..tools.printer import print_welcome, print_energy, print_header
+from ..tools.printer import print_polarizability, print_input_file
+from ..tools.timer import Timer, check_time
 
 
-class CalcMethod(object):
-    """Calculation base class.
+class CalcMethodBase(object):
+    """Calculation method base class.
 
     Use a discrete dipole approximation (DDA) method to calculate
     induced atomic dipoles. Class also used as the DIMPy calculation base
     class.
 
     :param nanoparticle: Nanoparticle to use
-    :type nanoparticle: :class:`dimpy.nanoparticle.Nanoparticle`
+    :type nanoparticle: :class:`dimpy.nanoparticle.nanoparticle.Nanoparticle`
 
     :param output_filename: The name of the DIMPy output file, default None
     :type output_filename: str or None, optional
@@ -45,7 +45,7 @@ class CalcMethod(object):
     :type kdir: str or None, optional
 
     :param solver: Linalg solver to use, default is "gmres". Possible options
-        are given in :attr:`dimpy.read_input_file.ReadInput.solvers`
+        are given in :attr:`dimpy.input_file.read_input_file.ReadInput.solvers`
     :type solver: str, optional
 
     :param r_max_pbc: Maximum distance to calculate the interactions between
@@ -53,11 +53,11 @@ class CalcMethod(object):
     :type r_max_pbc: float, optional
 
     :param verbose: Verbosity level, default is None (use verbose level from
-        :class:`dimpy.nanoparticle.Nanoparticle`)
+        :class:`dimpy.nanoparticle.nanoparticle.Nanoparticle`)
     :type verbose: int or None, optional
 
     :param debug: Debug flag, default is None (use debug from
-        :class:`dimpy.nanoparticle.Nanoparticle`)
+        :class:`dimpy.nanoparticle.nanoparticle.Nanoparticle`)
     :type debug: bool or None, optional
 
     :cvar float total_energy: Total energy of the nanoparticle
@@ -115,7 +115,7 @@ class CalcMethod(object):
             raise DIMPyError('AtributeError: Did you forget to `.build()`'
                              'the Nanoparticle object?')
 
-        start_time = self._timer.startTimer('CalcMethod.__init__')
+        start_time = self._timer.startTimer('CalcMethodBase.__init__')
         if self.verbose > 0 or self.debug:
             self.log('Initializing calculation', time=start_time)
 
@@ -169,7 +169,7 @@ class CalcMethod(object):
         self.qExtinct = None
 
         # end the timer
-        end_time = self._timer.endTimer('CalcMethod.__init__')
+        end_time = self._timer.endTimer('CalcMethodBase.__init__')
         if self.verbose > 0 or self.debug:
             self.log('Finished Initializing calculation, '
                      '{0:.3f} seconds'.format(end_time[1]),
@@ -619,9 +619,9 @@ class CalcMethod(object):
                 x0[ixyz] = atomic_dipoles
 
             # print energy terms
-            if omega == 0 or omega is None:
-                if self.verbose > 0 or self.debug:
-                    print_energy(self.total_energy, self.out)
+            if ( self.total_energy is not None and
+                 (self.verbose > 0 or self.debug) ):
+                print_energy(self.total_energy, self.out)
 
             # print polarizability tensor
             if self.polarizabilities is None:

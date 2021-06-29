@@ -7,15 +7,15 @@ import input_reader
 import numpy as np
 
 from .dimpy_error import DIMPyError
-from .method_static_dda import DDAs
-from .method_static_dim import DIMs
-from .method_static_dda_pbc import DDAsPBC
-from .method_dynamic_dda import DDAr
-from .method_dynamic_dda_pbc import DDArPBC
+from .methods import DDAs
+from .methods import DIMs
+from .methods import DDAsPBC
+from .methods import DDAr
+from .methods import DDArPBC
 from .nanoparticle import Nanoparticle
-from .printer import Output
-from .read_input_file import ReadInput
-from .timer import Timer
+from .tools.printer import Output
+from .input_file.read_input_file import ReadInput
+from .tools.timer import Timer
 from ._version import __version__
 
 def run_from_command_line():
@@ -60,7 +60,7 @@ def run (filename, output_filename=None, run_calc=True):
     """Run a DIMPy input file.
 
     :param filename str: The name of the DIMPy input file. See
-        :class:`dimpy.read_input_file.ReadInput` for input file format
+        :class:`dimpy.input_file.ReadInput` for input file format
 
     :param output_filename: The name of the output file to print
         calculation information, default None
@@ -69,12 +69,12 @@ def run (filename, output_filename=None, run_calc=True):
     :param run_calc: whether to run the calculation, default True
     :param run_calc: bool, optional
 
-    :returns: :class:`dimpy.calc_method.CalcMethod` object
+    :returns: :class:`dimpy.methods.CalcMethodBase` object
 
     **Example**::
 
     >>> import dimpy
-    >>> calc = dimpy.run('filename.dim')
+    >>> calc = dimpy.run('filename.dimpy')
 
     """
 
@@ -111,15 +111,15 @@ def run (filename, output_filename=None, run_calc=True):
                'DDArPBC': [['PBC', 'RET', 'DDA', 'PIM'], DDArPBC],
                'DIMs': [['MOL', 'STA', 'DIM', 'PIM'], DIMs],
               }
-    calc_method = None
+    method_base = None
     for calctype in methods:
         if all([x in methods[calctype][0] for x in calc]):
-            calc_method = methods[calctype][1]
-    if calc_method is None:
+            method_base = methods[calctype][1]
+    if method_base is None:
         raise DIMPyError('Calculation type not yet implemented!')
 
     # run the calculation
-    calculation = calc_method(nanoparticle, kdir=method.kdir,
+    calculation = method_base(nanoparticle, kdir=method.kdir,
                               freqs=method.freqs,
                               solver=method.solver, title=options.title)
 
