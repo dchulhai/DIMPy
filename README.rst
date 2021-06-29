@@ -9,7 +9,7 @@ Citing this Program
 
 **Python code**:
 
-* D.V. Chulhai; "A Discrete Interaction Model for Python" GitHub 2020,
+* D.V. Chulhai; M. Magee; "A Discrete Interaction Model for Python" GitHub 2020,
   https://github.com/dchulhai/DIMPy
 
 **Original fortran code**:
