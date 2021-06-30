@@ -9,9 +9,16 @@ Unreleased
 ##########
 
 - DIM with retardation
-- DIM with PBC
 - DIM with PBC and retardation
 - DIM/QM with PySCF
+
+[0.7.0] - 2021-06-30
+####################
+
+Added
+-----
+
+- DIM with PBC (including examples and test cases)
 
 [0.6.0] - 2021-06-29
 ####################

@@ -12,6 +12,6 @@ NANOPARTICLE
 ENDNANOPARTICLE
 
 METHOD
-  Interaction DDA
+  Interaction DIM
   Frequency nm 450
 ENDMETHOD

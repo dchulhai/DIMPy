@@ -17,14 +17,14 @@ class DDAsPBC(CalcMethodBase):
     ``DIMPy/examples/gold_chain_dda.dimpy``::
 
         >>> import dimpy
-        >>> nano = dimpy.Nanoparticle('Au 0 0 0', pbc=[[0, 0, 2.48]],
-        ...                           atom_params={'Au': {'exp': 'Au_jc'}})
+        >>> nano = dimpy.Nanoparticle('Au 0 0 0', pbc=[[0, 0, 3.32]],
+        ...        atom_params={'Au': {'exp': 'Au_jc', 'rad': 1.66}})
         >>> nano.verbose = 0
         >>> nano.build()
-        >>> calc = dimpy.DDAsPBC(nano, freqs=0.08360248)
+        >>> calc = dimpy.DDAsPBC(nano, freqs=0.10125189)
         >>> calc.run()
         >>> calc.isotropic_polarizabilities[0]
-        (2.885209+0.061860185j)
+        (4.5884604+34.322826j)
 
     """
 
