@@ -50,7 +50,7 @@ class TestMethods(unittest.TestCase):
         VERBOSE 0
         METHOD
          Interaction DDA
-         Kdir x
+         Kdir 1 0 0
         ENDMETHOD
         """)
 
@@ -95,7 +95,7 @@ class TestMethods(unittest.TestCase):
         VERBOSE 0
         METHOD
          Interaction DDA
-         Kdir x
+         Kdir 1 0 0
         ENDMETHOD
         """)
 

@@ -20,6 +20,14 @@ Fixes
 
 - AtomParam 'rad' in atomic units
 
+[0.7.2] - 2021-07-01
+####################
+
+Fixed
+-----
+
+- Updated test/examples to account for new 'kdir' input
+
 [0.7.1] - 2021-07-01
 ####################
 

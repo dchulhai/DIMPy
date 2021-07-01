@@ -8,5 +8,5 @@ ENDNANOPARTICLE
 METHOD
   Interaction DDA
   Frequency nm 545
-  Kdir x
+  Kdir 1 0 0
 ENDMETHOD
