@@ -40,9 +40,9 @@ class CalcMethodBase(object):
     :param title: Title of this calculation, default None
     :type title: str or None, optional
 
-    :param kdir: Direction of the k-vector for calculations with retardation
+    :param kdir: Unit k-vector for calculations with retardation
         effects, default is None (a non-retarded calculation)
-    :type kdir: str or None, optional
+    :type kdir: numpy.ndarray or list or None, optional
 
     :param solver: Linalg solver to use, default is "gmres". Possible options
         are given in :attr:`dimpy.input_file.read_input_file.ReadInput.solvers`
@@ -129,8 +129,9 @@ class CalcMethodBase(object):
 
         # get k-direction
         if kdir is not None:
-            dirs = {'x': 0, 'y': 1, 'z': 2}
-            self.kdir = dirs[kdir]
+            if len(kdir) != 3:
+                raise DIMPyError("'kdir' must be a length 3 array or list!")
+            self.kdir = np.array(kdir) / sp.linalg.norm(kdir)
         else:
             self.kdir = None
 
@@ -148,7 +149,9 @@ class CalcMethodBase(object):
             self.nFreqs = 1
 
             # you cannot have a k-direction for a static calculation
-            self.kdir = None
+            if self.kdir is not None:
+                raise DIMPyError("You cannot have a k-vector for a "
+                                 "static calculation!")
 
         # set attributes to be calculated later
         self._t0 = None
@@ -193,8 +196,9 @@ class CalcMethodBase(object):
         output(f'Interaction type  : {self.interaction}')
         approx = 'Quasi-static approximation'
         if self.kdir is not None:
-            approx = f'k = {self.kdir}'
-        output(f'Wave vector       : {approx}')
+            approx = (f'k = {self.kdir[0]:4.2f} {self.kdir[1]:4.2f} '
+                      f'{self.kdir[2]:4.2f}')
+        output(f'Wave vector mag.  : {approx}')
         output(f'Solver            : {self.solver}')
         output()
 

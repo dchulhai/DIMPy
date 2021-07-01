@@ -8,9 +8,25 @@ All notable changes to this project will be documented in this file.
 Unreleased
 ##########
 
+Features
+--------
+
 - DIM with retardation
 - DIM with PBC and retardation
 - DIM/QM with PySCF
+
+Fixes
+-----
+
+- AtomParam 'rad' in atomic units
+
+[0.7.1] - 2021-07-01
+####################
+
+Fixed
+-----
+
+- 'Kdir' key as a vector instead of a string
 
 [0.7.0] - 2021-06-30
 ####################

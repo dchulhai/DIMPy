@@ -164,11 +164,7 @@ class Analyzer(object):
             index = indices['CALCULATION']
             title = f[index].split()[2]
             interaction = f[index+1].split()[3]
-            st = f[index+2].split()[3]
-            if st in ('x', 'y', 'z'):
-                kdir = st
-            else:
-                kdir = None
+            kdir = np.array(f[index+2].split()[6:], dtype=float)
             solver = f[index+3].split()[2]
         else:
             raise DIMPyError("'Calculation Information' not found in output")

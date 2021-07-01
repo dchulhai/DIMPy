@@ -21,7 +21,7 @@ class DDAr(CalcMethodBase):
         ...                           atom_params={'Au': {'exp': 'Au_jc'}})
         >>> # 'Au_147_ico.xyz' must be in the current directory
         >>> nano.build()
-        >>> calc = dimpy.DDAr(nano, freqs=0.08360248, kdir='x')
+        >>> calc = dimpy.DDAr(nano, freqs=0.08360248, kdir=[1,0,0])
         >>> calc.run()
         >>> calc.isotropic_polarizabilities[0]
         (8906.452+6817.6953j)
@@ -104,22 +104,25 @@ class DDAr(CalcMethodBase):
         """Get incident field for this direction."""
         E = np.zeros((natoms, 3), dtype=np.complex64)
 
-        # kdir is perpendicular to the field direction,
-        # as it should be
-        # if kdir and the field direction are the same, then
-        # return no field
-        if self.kdir != dimension:
-            # get k dot r
-            k = 2 * np.pi / NM2BOHR(HART2NM(omega))
-            kvec = np.zeros((3), dtype=np.float32)
-            kvec[self.kdir] = k
-            print (kvec)
+        # get a vector for this e-field
+        Evec = np.zeros((3))
+        Evec[dimension] = 1
 
-            # calculate k_dot_r
-            k_dot_r = np.dot(self.nanoparticle.coordinates, kvec)
+        # field is only perpendicular to k-vector
+        perp_factor = np.sin(np.arccos(np.clip(np.dot(Evec, self.kdir), -1, 1)))
+        perp_factor = perp_factor**2
 
-            # incorporate that into the field
-            E[:,dimension] = np.exp(1j * k_dot_r)
+        # if the field is perpendicular, calculate it
+        if perp_factor != 0:
+
+            # calculate the k-vector
+            kvec = 2 * np.pi / NM2BOHR(HART2NM(omega)) * self.kdir
+
+            # calculate k dot r
+            k_dor_r = np.dot(self.nanoparticle.coordinates, kvec)
+
+            # the field is e^{ikr}
+            E[:,dimension] = np.exp(1j * k_dor_r) * perp_factor
 
         # reshape and return E
         E = E.reshape(natoms * 3)

@@ -112,7 +112,7 @@ class ReadInput(object):
         method.add_line_key('interaction', type=('dda', 'dim'), required=True)
 
         # k-vector direction (when present, this is a retardation calculation)
-        method.add_line_key('kdir', type=('x', 'y', 'z'), default=None)
+        method.add_line_key('kdir', type=[float, float, float], default=None)
 
         # Frequency control
         freq = method.add_mutually_exclusive_group()

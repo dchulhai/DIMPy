@@ -75,8 +75,7 @@ class DDArPBC(CalcMethodBase):
         kR = k * self.nanoparticle.distances
         eikr = np.exp(1j * kR)
 
-        kvec = np.zeros((3), dtype=np.float32)
-        kvec[self.kdir] = k
+        kvec = self.kdir * k
 
         fac0 = eikr * k * k 
         fac1 = fac0[:,:,np.newaxis] * self.nanoparticle.r_vec
