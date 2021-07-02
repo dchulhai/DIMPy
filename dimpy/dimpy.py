@@ -7,8 +7,7 @@ import input_reader
 import numpy as np
 
 from .dimpy_error import DIMPyError
-from .methods import DDAs, DDAsPBC, DDAr, DDArPBC
-from .methods import DIMs, DIMsPBC
+from .methods import DDAs, DDAr, DIMs
 from .nanoparticle import Nanoparticle
 from .tools.printer import Output
 from .input_file.read_input_file import ReadInput
@@ -96,18 +95,11 @@ def run (filename, output_filename=None, run_calc=True):
     else:
         calc.append('STA')
     calc.append('PIM')
-    if nanoparticle.pbc is not None:
-        calc.append('PBC')
-    else:
-        calc.append('MOL')
 
     # get calculation method based on calctype
-    methods = {'DDAs': [['MOL', 'STA', 'DDA', 'PIM'], DDAs],
-               'DDAr': [['MOL', 'RET', 'DDA', 'PIM'], DDAr],
-               'DDAsPBC': [['PBC', 'STA', 'DDA', 'PIM'], DDAsPBC],
-               'DDArPBC': [['PBC', 'RET', 'DDA', 'PIM'], DDArPBC],
-               'DIMs': [['MOL', 'STA', 'DIM', 'PIM'], DIMs],
-               'DIMsPBC' : [['PBC', 'STA', 'DIM', 'PIM'], DIMsPBC],
+    methods = {'DDAs': [['STA', 'DDA', 'PIM'], DDAs],
+               'DDAr': [['RET', 'DDA', 'PIM'], DDAr],
+               'DIMs': [['STA', 'DIM', 'PIM'], DIMs],
               }
     method_base = None
     for calctype in methods:

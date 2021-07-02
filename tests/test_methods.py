@@ -78,7 +78,7 @@ class TestMethods(unittest.TestCase):
 
         calc = self._run_input(dimpy_input)
 
-        self.assertIsInstance(calc, dimpy.DDAsPBC)
+        self.assertIsInstance(calc, dimpy.DDAs)
 
     def test_DDArPBC(self):
 
@@ -101,7 +101,7 @@ class TestMethods(unittest.TestCase):
 
         calc = self._run_input(dimpy_input)
 
-        self.assertIsInstance(calc, dimpy.DDArPBC)
+        self.assertIsInstance(calc, dimpy.DDAr)
 
     def test_DIMs(self):
 
@@ -142,28 +142,28 @@ class TestMethods(unittest.TestCase):
 #
 #        self.assertIsInstance(calc, dimpy.DIMr)
 #
-#    def test_DIMsPBC(self):
-#
-#        dimpy_input = textwrap.dedent(
-#        """\
-#        NANOPARTICLE
-#         Atoms
-#          Ag 0 0 0 
-#         End
-#         PBC
-#          0 0 1.89
-#         End
-#        ENDNANOPARTICLE
-#        VERBOSE 0
-#        METHOD
-#         Interaction DIM
-#        ENDMETHOD
-#        """)
-#
-#        calc = self._run_input(dimpy_input)
-#
-#        self.assertIsInstance(calc, dimpy.DIMsPBC)
-#
+    def test_DIMsPBC(self):
+
+        dimpy_input = textwrap.dedent(
+        """\
+        NANOPARTICLE
+         Atoms
+          Ag 0 0 0 
+         End
+         PBC
+          0 0 1.89
+         End
+        ENDNANOPARTICLE
+        VERBOSE 0
+        METHOD
+         Interaction DIM
+        ENDMETHOD
+        """)
+
+        calc = self._run_input(dimpy_input)
+
+        self.assertIsInstance(calc, dimpy.DIMs)
+
 #    def test_DIMrPBC(self):
 #
 #        dimpy_input = textwrap.dedent(
@@ -185,7 +185,7 @@ class TestMethods(unittest.TestCase):
 #
 #        calc = self._run_input(dimpy_input)
 #
-#        self.assertIsInstance(calc, dimpy.DIMrPBC)
+#        self.assertIsInstance(calc, dimpy.DIMr)
 
 if __name__ == '__main__':
     unittest.main(warnings="ignore")

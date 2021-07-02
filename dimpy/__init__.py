@@ -30,8 +30,7 @@ from .analyzer import Analyzer
 from .dimpy import run
 from .dimpy_error import DIMPyError
 from .input_file import ReadInput
-from .methods import DDAs, DDAsPBC, DDAr, DDArPBC
-from .methods import DIMs, DIMsPBC
+from .methods import DDAs, DDAr, DIMs
 from .nanoparticle import Nanoparticle
 from ._version import __version__
 

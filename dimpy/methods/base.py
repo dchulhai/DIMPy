@@ -179,7 +179,7 @@ class CalcMethodBase(object):
                      time=end_time[0])
 
     interaction = 'DDA'
-    """Interaction type for this class."""
+    """Discrete Dipole Interaction"""
 
     @property
     def wavelength_nm(self):
@@ -209,10 +209,9 @@ class CalcMethodBase(object):
     # consider using scipy.sparse to make them memory efficient
     ###########################################################
 
-    @property
     @check_memory
-    @check_time(log='once')
-    def t0(self):
+    @check_time(log='debug')
+    def t0(self, **kwargs):
         r"""Calculate and return the zeroth-order interaction tensor.
 
         .. math::
@@ -229,10 +228,9 @@ class CalcMethodBase(object):
 
         return self._t0
 
-    @property
     @check_memory
-    @check_time(log='once')
-    def t1(self):
+    @check_time(log='debug')
+    def t1(self, **kwargs):
         r"""Calculate and return the first-order interaction tensor.
 
         .. math::
@@ -244,43 +242,48 @@ class CalcMethodBase(object):
         if self._t1 is None:
 
             r_vec = self.nanoparticle.r_vec
-            r_inv = self.t0
+            r_inv = self.t0()
             r3_inv = r_inv * r_inv * r_inv
             self._t1 = -1.0 * r3_inv[:,:,np.newaxis] * r_vec
 
         return self._t1
 
-    @property
     @check_memory
-    @check_time(log='once')
-    def t2(self):
+    @check_time(log='debug')
+    def t2(self, vector=None, **kwargs):
         r"""Calculate and return the second-order interaction tensor.
 
         .. math::
 
-            T^{(2)}_{ij,\alpha\beta} = \frac{3 r_{ij,\alpha} r_{ij,\beta}}{|r_{ij}|^5} -
+            T^{(2)}_{i\alpha,j\beta} = \frac{3 r_{ij,\alpha} r_{ij,\beta}}{|r_{ij}|^5} -
             \frac{\delta_{\alpha\beta}}{|r_{ij}|^3}
 
         """
 
-        if self._t2 is None:
-
-            natoms = self.nanoparticle.natoms
-
-            # do the off diagonal terms
+        # get r_vec and r_inv
+        if vector is None:
             r_vec = self.nanoparticle.r_vec
-            r_inv = self.t0
-            r3_inv = r_inv * r_inv * r_inv
-            r5_inv = r3_inv * r_inv * r_inv
+            dists = self.nanoparticle.distances
+        else:
+            r_vec = self.nanoparticle.r_vec + vector
+            c_old = self.nanoparticle.coordinates
+            c_new = self.nanoparticle.coordinates + vector
+            dists = sp.spatial.distance.cdist(c_old, c_new)
+        r_inv = np.divide(1, dists, dtype=np.float32, where=dists!=0)
 
-            self._t2 = 3 * np.einsum('ij,ijk,ijl->ikjl', r5_inv, r_vec,
-                                     r_vec, dtype=np.float32, casting='same_kind',
-                                     optimize=True)
-            self._t2[:,0,:,0] -= r3_inv
-            self._t2[:,1,:,1] -= r3_inv
-            self._t2[:,2,:,2] -= r3_inv
+        r3_inv = r_inv * r_inv * r_inv
+        r5_inv = r3_inv * r_inv * r_inv
 
-        return self._t2
+        # calc off-diagonal terms
+        t2 = 3 * np.einsum('ij,ijk,ijl->ikjl', r5_inv, r_vec,
+                                 r_vec, dtype=np.float32, casting='same_kind',
+                                 optimize=True)
+        # calc diagonal terms
+        t2[:,0,:,0] -= r3_inv
+        t2[:,1,:,1] -= r3_inv
+        t2[:,2,:,2] -= r3_inv
+
+        return t2
 
 
     @check_memory
@@ -306,24 +309,91 @@ class CalcMethodBase(object):
         natoms = self.nanoparticle.natoms
         pol_inv = 1 / self.nanoparticle.atomic_polarizabilities(omega)
 
+        # initialize the A-matrix and get off-diagonal terms for
+        # origin cell
         A_matrix = np.zeros((natoms, 3, natoms, 3), dtype=self._dtype)
-        A_matrix -= self.t2
+        A_matrix -= self.t2(omega=omega)
 
+        # get diagonal elements (inverse polarizability)
         for i in range(natoms):
             A_matrix[i,:,i,:] = 0
             for a in range(3):
                 A_matrix[i,a,i,a] = pol_inv[i]
 
-        self._A_matrix = A_matrix.reshape(natoms * 3, natoms * 3)
+        # calculate interactions from image cells
+        if self.pbc is not None:
 
+            # get lattice vectors and max unit cells
+            mvec = self.pbc[0]
+            mmax = max(1, int(self.r_max_pbc / np.linalg.norm(self.pbc[0])))
+            if len(self.pbc) > 1:
+                nvec = self.pbc[1]
+                nmax = max(1, int(self.r_max_pbc / np.linalg.norm(self.pbc[1])))
+            else:
+                nvec = np.zeros((3))
+                nmax = 0 
+
+            # cycle over the first lattice vector
+            for m in range(-mmax,mmax+1,1):
+
+                # cycle over the second lattice vector
+                for n in range(-nmax,nmax+1,1):
+
+                    # skip if this is the origin unit cell
+                    if m == 0 and n == 0:
+                        continue
+
+                    # get new vector
+                    new_vec = m * mvec + n * nvec
+
+                    # skip if our distance is greater than needed
+                    dist = np.linalg.norm(new_vec)
+                    if dist > self.r_max_pbc:
+                        continue
+
+                    # calculate the interaction and add to the A-matrix
+                    t2 = self.t2(omega=omega, vector=new_vec)
+                    A_matrix -= t2
+
+        # reshape and return A matrix
+        self._A_matrix = A_matrix.reshape(natoms * 3, natoms * 3)
         return self._A_matrix
 
     @check_memory(log='debug')
     @check_time(log='debug')
     def _get_Einc(self, dimension, natoms, omega):
         """Get incident field for this direction."""
-        E = np.zeros((natoms, 3), dtype=np.float32)
-        E[:, dimension] = 1 
+        # E magnitude is 1 in each dimension
+        if self.kdir is None:
+            E = np.zeros((natoms, 3), dtype=np.float32)
+            E[:, dimension] = 1 
+
+        # E magnitude is perpendicular to kdir
+        else:
+            E = np.zeros((natoms, 3), dtype=np.complex64)
+
+            # get a vector for this e-field
+            Evec = np.zeros((3))
+            Evec[dimension] = 1 
+
+            # field is only perpendicular to k-vector
+            perp_factor = np.sin(np.arccos(np.clip(np.dot(Evec, self.kdir),
+                                                   -1, 1)))
+            perp_factor = perp_factor**2
+
+            # if the field is perpendicular, calculate it
+            if perp_factor != 0:
+
+                # calculate the k-vector
+                kvec = 2 * np.pi / NM2BOHR(HART2NM(omega)) * self.kdir
+
+                # calculate k dot r
+                k_dor_r = np.dot(self.nanoparticle.coordinates, kvec)
+
+                # the field is e^{ikr}
+                E[:,dimension] = np.exp(1j * k_dor_r) * perp_factor
+
+        # reshape and return
         E = E.reshape(natoms * 3)
         return E
 
@@ -582,7 +652,7 @@ class CalcMethodBase(object):
             self.print_calc_information()
             self.nanoparticle.print_nanoparticle()
 
-        # temporarily hole the atomic dipoles here for
+        # temporarily hold the atomic dipoles here for
         # restart when calculating multiple frequencies
         self.atomic_dipoles = None
         x0 = [None, None, None]

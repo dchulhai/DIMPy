@@ -11,14 +11,22 @@ Unreleased
 Features
 --------
 
-- DIM with retardation
-- DIM with PBC and retardation
+- DIM with retardation (and PBC)
 - DIM/QM with PySCF
 
 Fixes
 -----
 
 - AtomParam 'rad' in atomic units
+
+[0.7.3] - 2021-07-2
+###################
+
+Changed
+-------
+
+- PBC calculations no longer has their own modules
+- Each module in DIMPy/dimpy/methods only modifies the T2 tensor
 
 [0.7.2] - 2021-07-01
 ####################

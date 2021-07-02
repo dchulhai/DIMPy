@@ -24,108 +24,55 @@ class DDAr(CalcMethodBase):
         >>> calc = dimpy.DDAr(nano, freqs=0.08360248, kdir=[1,0,0])
         >>> calc.run()
         >>> calc.isotropic_polarizabilities[0]
-        (8906.452+6817.6953j)
+        (8905.193+6813j)
 
     """
 
-    @check_memory(log='debug')
-    @check_time(log='debug')
-    def _kR(self, omega):
-        """Get k dot R."""
-        return self.nanoparticle.distances * self._kmag(omega)
-
-    @check_memory(log='debug')
-    @check_time(log='debug')
-    def _kmag(self, omega):
-        """Get the magnitude of the k-vector."""
-        return 2 * np.pi / NM2BOHR(HART2NM(omega))
-
     @check_memory
-    @check_time
-    def A_matrix(self, omega=None):
-        r"""Returns the A-matrix accounting for
-        a dynamic electric field.
-
-        .. math::
-
-            A_{ij,\alpha\beta} = \begin{cases}
-                \alpha_{\alpha\beta}^{-1}, & \text{if $i=j$} \\
-                -\text{exp}(ikr) \left[
-                \delta_{\alpha\beta}k^2 T^{(0)}_{ij}
-                + k^2 r_\beta T^{(1)}_{ij,\alpha}
-                + (1 - ikr) T^{(2)}_{ij,\alpha\beta} \right]
-                & \text{if $i\neq j$}
-            \end{cases}
-
-        :param omega: Incident frequency, default None
-        :type omega: float, optional
-
-        :returns: The A-matrix
-        :rtype: numpy.ndarray (complex)
-
-        """
+    @check_time(log='debug')
+    def t2(self, omega=None, vector=None, **kwargs):
 
         natoms = self.nanoparticle.natoms
+        k = 2 * np.pi / NM2BOHR(HART2NM(omega))
 
-        k = self._kmag(omega)
-        kR = k * self.nanoparticle.distances
-        eikr = np.exp(1j * kR)
+        # get r_vec and R for any unit cell
+        if vector is None:
+            R = self.nanoparticle.distances
+            r_vec = self.nanoparticle.r_vec
+        else:
+            r_vec = self.nanoparticle.r_vec + vector
+            c_old = self.nanoparticle.coordinates
+            c_new = c_old + vector
+            R = sp.spatial.distance.cdist(c_old, c_new)
+        r_inv = np.divide(1, R, where=R!=0, dtype=np.float32)
 
-        fac0 = eikr * k * k
-        fac1 = fac0[:,:,np.newaxis] * self.nanoparticle.r_vec
-        fac2 = eikr * ( 1 - 1j * kR )
+        # get some common terms that are frequency used
+        ikr = 1j * k * R
+        eikr = np.exp(ikr)
 
-        # initialize A-matrix
-        A_matrix = np.zeros((natoms, 3, natoms, 3), dtype=self._dtype)
+        # initialize t2 matrix
+        t2 = np.zeros((natoms, 3, natoms, 3), dtype=np.complex64)
 
-        # get off-diagonal terms
-        for a in range(3):
-            A_matrix[:,a,:,a] = A_matrix[:,a,:,a] - fac0 * self.t0
-            for b in range(3):
-                A_matrix[:,a,:,b] = ( A_matrix[:,a,:,b] - fac1[:,:,a]
-                                    * self.t1[:,:,b] )
-        A_matrix = A_matrix - fac2[:,np.newaxis,:,np.newaxis] * self.t2
+        # generate t2 (diagonal parts)
+        temp = eikr * r_inv * r_inv * r_inv
+        t2[:,0,:,0] -= temp
+        t2[:,1,:,1] -= temp
+        t2[:,2,:,2] -= temp
 
-        # diagonal terms is the inverse polarizability
-        pol_inv = 1 / self.nanoparticle.atomic_polarizabilities(omega)
-        for i in range(natoms):
-            A_matrix[i,:,i,:] = 0 
-            for a in range(3):
-                A_matrix[i,a,i,a] = pol_inv[i]
+        temp *= ikr
+        t2[:,0,:,0] += temp
+        t2[:,1,:,1] += temp
+        t2[:,2,:,2] += temp
 
-        # reshape to a 2-dimensional matrix and return
-        self._A_matrix = A_matrix.reshape(natoms * 3, natoms * 3)
-        return self._A_matrix
+        # generate t2 (off-diagonal parts)
+        temp = ikr * ikr * eikr * r_inv * r_inv * r_inv * r_inv * r_inv
+        t2 += np.einsum('ij,ija,ijb->iajb', temp, r_vec, r_vec)
 
+        temp = 3 * ikr * eikr * r_inv * r_inv * r_inv * r_inv * r_inv
+        t2 -= np.einsum('ij,ija,ijb->iajb', temp, r_vec, r_vec)
 
-    @check_memory(log='debug')
-    @check_time(log='debug')
-    def _get_Einc(self, dimension, natoms, omega):
-        """Get incident field for this direction."""
-        E = np.zeros((natoms, 3), dtype=np.complex64)
+        temp = 3 * eikr * r_inv * r_inv * r_inv * r_inv * r_inv
+        t2 += np.einsum('ij,ija,ijb->iajb', temp, r_vec, r_vec)
 
-        # get a vector for this e-field
-        Evec = np.zeros((3))
-        Evec[dimension] = 1
-
-        # field is only perpendicular to k-vector
-        perp_factor = np.sin(np.arccos(np.clip(np.dot(Evec, self.kdir), -1, 1)))
-        perp_factor = perp_factor**2
-
-        # if the field is perpendicular, calculate it
-        if perp_factor != 0:
-
-            # calculate the k-vector
-            kvec = 2 * np.pi / NM2BOHR(HART2NM(omega)) * self.kdir
-
-            # calculate k dot r
-            k_dor_r = np.dot(self.nanoparticle.coordinates, kvec)
-
-            # the field is e^{ikr}
-            E[:,dimension] = np.exp(1j * k_dor_r) * perp_factor
-
-        # reshape and return E
-        E = E.reshape(natoms * 3)
-        return E
-
+        return t2
 

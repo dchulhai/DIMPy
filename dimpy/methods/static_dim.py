@@ -29,12 +29,11 @@ class DIMs(CalcMethodBase):
 
 
     interaction = 'DIM'
-    """Interaction type for this class."""
+    """Discrete Interaction Model"""
 
-    @property
     @check_memory
     @check_time(log='once')
-    def t0(self):
+    def t0(self, **kwargs):
         '''The screened zeroth-order interaction tensor.'''
         if self._t0 is None:
 
@@ -50,10 +49,9 @@ class DIMs(CalcMethodBase):
         return self._t0
 
 
-    @property
     @check_memory
     @check_time(log='once')
-    def t1(self):
+    def t1(self, **kwargs):
         '''The screened first-order interaction tensor.'''
         if self._t1 is None:
 
@@ -73,46 +71,51 @@ class DIMs(CalcMethodBase):
         return self._t1
 
 
-    @property
     @check_memory
     @check_time(log='once')
-    def t2(self):
+    def t2(self, vector=None, **kwargs):
         '''The screened second-order interaction tensor.'''
-        if self._t2 is None:
 
-            # FIXME: 1.88973 is to convert Angstrom to Bohr
-            R = (2/np.sqrt(np.pi)) * 1.88973 * self.nanoparticle.atomic_radii
+        # get dists, r_vec, and r_inv for any unit cell
+        if vector is None:
             dists = self.nanoparticle.distances
             r_vec = self.nanoparticle.r_vec
-            r_inv = np.divide(1, dists, out=np.zeros_like(dists),
-                              where=dists!=0, dtype=np.float32)
-            r3_inv = r_inv * r_inv * r_inv
-            r5_inv = r3_inv * r_inv * r_inv
+        else:
+            r_vec = self.nanoparticle.r_vec + vector
+            c_old = self.nanoparticle.coordinates
+            c_new = c_old + vector
+            dists = sp.spatial.distance.cdist(c_old, c_new)
+        r_inv = np.divide(1, dists, where=dists!=0, dtype=np.float32)
 
-            S = np.divide(dists, R, where=R!=0, dtype=np.float32)
-            S_cubed = S * S * S
-            S_sq = S * S
+        # get the screening factor R
+        # FIXME: 1.88973 is to convert Angstrom to Bohr
+        R = (2/np.sqrt(np.pi)) * 1.88973 * self.nanoparticle.atomic_radii
 
-            einsum = np.einsum('ij,ijk,ijl->ikjl', r5_inv, r_vec,
-                               r_vec, dtype=np.float32, casting='same_kind')
-            t2 = 3 * einsum
-            t2[:,0,:,0] -= r3_inv
-            t2[:,1,:,1] -= r3_inv
-            t2[:,2,:,2] -= r3_inv
+        r3_inv = r_inv * r_inv * r_inv
+        r5_inv = r3_inv * r_inv * r_inv
 
-            #t1 erf
-            t1_erf = (sp.special.erf(S) - 
-                      ((2/np.sqrt(np.pi)) * S * np.exp(-S_sq)))
+        S = np.divide(dists, R, where=R!=0, dtype=np.float32)
+        S_cubed = S * S * S
+        S_sq = S * S
 
-            #multiplying t1 erf and t2
-            p1 = np.einsum('ij,ikjl->ikjl', t1_erf, t2,
-                           dtype=np.float32, casting='same_kind')
+        einsum = np.einsum('ij,ijk,ijl->ikjl', r5_inv, r_vec,
+                           r_vec, dtype=np.float32, casting='same_kind')
+        t2 = 3 * einsum
+        t2[:,0,:,0] -= r3_inv
+        t2[:,1,:,1] -= r3_inv
+        t2[:,2,:,2] -= r3_inv
 
-            p2 = (4/np.sqrt(np.pi)) * np.einsum('ij,ij,ikjl->ikjl',
-                 S_cubed, np.exp(-S_sq), einsum, dtype=np.float32,
-                 casting='same_kind')
+        #t1 erf
+        t1_erf = (sp.special.erf(S) - 
+                  ((2/np.sqrt(np.pi)) * S * np.exp(-S_sq)))
 
-            self._t2 = p1 - p2
+        #multiplying t1 erf and t2
+        p1 = np.einsum('ij,ikjl->ikjl', t1_erf, t2,
+                       dtype=np.float32, casting='same_kind')
 
-        return self._t2
+        p2 = (4/np.sqrt(np.pi)) * np.einsum('ij,ij,ikjl->ikjl',
+             S_cubed, np.exp(-S_sq), einsum, dtype=np.float32,
+             casting='same_kind')
+
+        return p1 - p2
 
