@@ -28,6 +28,12 @@ class DDAr(CalcMethodBase):
 
     """
 
+    interaction = 'DDA'
+    """Discrete Dipole Approximation"""
+
+    model = 'PIM'
+    """Polarizability Interaction Model"""
+
     @check_memory
     @check_time(log='debug')
     def t2(self, omega=None, vector=None, **kwargs):

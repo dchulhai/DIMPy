@@ -27,14 +27,23 @@ class DIMs(CalcMethodBase):
 
     """
 
-
     interaction = 'DIM'
     """Discrete Interaction Model"""
+
+    model = 'PIM'
+    """Polarizability Interaction Model"""
 
     @check_memory
     @check_time(log='once')
     def t0(self, **kwargs):
-        '''The screened zeroth-order interaction tensor.'''
+        r"""The screened zeroth-order interaction tensor.
+
+        .. math::
+
+            T^{(0)} = \frac{\operatorname{erf}{\left(S \right)}}{r}
+
+        """
+
         if self._t0 is None:
 
             # FIXME: 1.88973 is to convert Angstrom to Bohr
@@ -52,7 +61,15 @@ class DIMs(CalcMethodBase):
     @check_memory
     @check_time(log='once')
     def t1(self, **kwargs):
-        '''The screened first-order interaction tensor.'''
+        r"""The screened first-order interaction tensor.
+
+        .. math::
+
+            T^{(1)}_\alpha = \frac{2 S r_{\alpha} e^{- S^{2}}}{\sqrt{\pi} r^{3}}
+            - \frac{r_{\alpha} \operatorname{erf}{\left(S \right)}}{r^{3}}
+
+        """
+
         if self._t1 is None:
 
             # FIXME: 1.88973 is to convert Angstrom to Bohr
@@ -74,7 +91,19 @@ class DIMs(CalcMethodBase):
     @check_memory
     @check_time(log='once')
     def t2(self, vector=None, **kwargs):
-        '''The screened second-order interaction tensor.'''
+        r"""The screened second-order interaction tensor.
+
+        .. math::
+
+            T^{(2)}_{\alpha\beta}
+            = - \frac{4 S^{3} r_{\alpha} r_{\beta} e^{- S^{2}}}{\sqrt{\pi}
+            r^{5}} + \frac{2 S \delta_{\alpha\beta} e^{- S^{2}}}{\sqrt{\pi} r^{3}}
+            - \frac{6 S r_{\alpha} r_{\beta} e^{- S^{2}}}{\sqrt{\pi} r^{5}}
+            - \frac{\delta_{\alpha\beta} \operatorname{erf}{\left(S \right)}}
+            {r^{3}} + \frac{3 r_{\alpha} r_{\beta} \operatorname{erf}
+            {\left(S \right)}}{r^{5}}
+
+        """
 
         # get dists, r_vec, and r_inv for any unit cell
         if vector is None:

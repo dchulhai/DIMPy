@@ -20,26 +20,10 @@ dimpy.methods.dynamic\_dda module
     :undoc-members:
     :show-inheritance:
 
-dimpy.methods.dynamic\_dda\_pbc module
---------------------------------------
-
-.. automodule:: dimpy.methods.dynamic_dda_pbc
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 dimpy.methods.static\_dda module
 --------------------------------
 
 .. automodule:: dimpy.methods.static_dda
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-dimpy.methods.static\_dda\_pbc module
--------------------------------------
-
-.. automodule:: dimpy.methods.static_dda_pbc
     :members:
     :undoc-members:
     :show-inheritance:

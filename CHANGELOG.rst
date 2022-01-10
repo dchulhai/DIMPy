@@ -19,8 +19,16 @@ Fixes
 
 - AtomParam 'rad' in atomic units
 
-[0.7.3] - 2021-07-2
-###################
+[0.7.4] - 2022-01-10
+####################
+
+Added
+-----
+
+- Included updated documentation on some modules
+
+[0.7.3] - 2021-07-02
+####################
 
 Changed
 -------
