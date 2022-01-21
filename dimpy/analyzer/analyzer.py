@@ -165,6 +165,7 @@ class Analyzer(object):
             title = f[index].split()[2]
             interaction = f[index+1].split()[3]
             kdir = np.array(f[index+2].split()[6:], dtype=float)
+            if kdir.size == 0: kdir = None
             solver = f[index+3].split()[2]
         else:
             raise DIMPyError("'Calculation Information' not found in output")

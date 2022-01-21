@@ -11,13 +11,37 @@ Unreleased
 Features
 --------
 
-- DIM with retardation (and PBC)
+- DIM with retardation and PBC
 - DIM/QM with PySCF
 
 Fixes
 -----
 
 - AtomParam 'rad' in atomic units
+
+[0.8.0] - 2022-01-21
+####################
+
+Added
+-----
+
+- Use NumExpr to help speed up some array operations
+- DIM with retardation (Meredith's work)
+
+Fixes
+-----
+
+- fixed analyzer method for molecular nanoparticles (ndim = 0)
+- Removed CG solver as an option (incorrect results)
+
+
+[0.7.5] - 2022-01-10
+####################
+
+Added
+-----
+
+- Included use of numpy for simple shared-memory parallelization
 
 [0.7.4] - 2022-01-10
 ####################

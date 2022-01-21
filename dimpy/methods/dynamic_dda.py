@@ -10,7 +10,7 @@ class DDAr(CalcMethodBase):
     """A discrete dipole approximation (DDA) method with
     field retardation effections.
 
-    The changed methods are: :meth:`A_matrix` and :meth:`_get_Einc`
+    The changed methods are: :meth:`t2`
 
     See :class:`dimpy.methods.base.CalcMethodBase` for full documentation.
 

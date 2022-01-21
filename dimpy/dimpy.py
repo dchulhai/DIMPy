@@ -7,7 +7,7 @@ import input_reader
 import numpy as np
 
 from .dimpy_error import DIMPyError
-from .methods import DDAs, DDAr, DIMs
+from .methods import DDAs, DDAr, DIMs, DIMr
 from .nanoparticle import Nanoparticle
 from .tools.printer import Output
 from .input_file.read_input_file import ReadInput
@@ -100,6 +100,7 @@ def run (filename, output_filename=None, run_calc=True):
     methods = {'DDAs': [['STA', 'DDA', 'PIM'], DDAs],
                'DDAr': [['RET', 'DDA', 'PIM'], DDAr],
                'DIMs': [['STA', 'DIM', 'PIM'], DIMs],
+               'DIMr': [['RET', 'DIM', 'PIM'], DIMr],
               }
     method_base = None
     for calctype in methods:

@@ -96,7 +96,7 @@ class ReadInput(object):
                                 re.compile(r'\S+', re.VERBOSE)])
 
     # define solvers here
-    solvers = ('direct', 'solve', 'bicg', 'bicgstab', 'cg',
+    solvers = ('direct', 'solve', 'bicg', 'bicgstab', #'cg',
                'cgs', 'gmres', 'lgmres', 'qmr', 'gcrotmk')
     """Available options for the 'Solver' key in the DIMPy input."""
 

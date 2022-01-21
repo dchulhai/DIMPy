@@ -1,4 +1,5 @@
 argparse>=1.1
 input_reader>=1.2
+numexpr>=2.8
 numpy>=1.18
 scipy>=1.4

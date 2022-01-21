@@ -5,8 +5,9 @@ import numpy as np
 import scipy as sp
 from scipy import linalg, sparse
 from scipy.sparse import linalg
+import numexpr as ne
 
-from ..tools.constants import HART2NM, BOHR2NM
+from ..tools.constants import HART2NM, BOHR2NM, NM2BOHR
 from ..tools.constants import HART2EV, HART2WAVENUM, HART2HZ
 from ..dimpy_error import DIMPyError
 from ..tools.memory import check_memory
@@ -269,15 +270,21 @@ class CalcMethodBase(object):
             c_old = self.nanoparticle.coordinates
             c_new = self.nanoparticle.coordinates + vector
             dists = sp.spatial.distance.cdist(c_old, c_new)
-        r_inv = np.divide(1, dists, dtype=np.float32, where=dists!=0)
+        r_inv = ne.evaluate("1/dists")
 
-        r3_inv = r_inv * r_inv * r_inv
-        r5_inv = r3_inv * r_inv * r_inv
+        r3_inv = ne.evaluate("r_inv * r_inv * r_inv")
+        r5_inv = ne.evaluate("r3_inv * r_inv * r_inv")
+        del(r_inv)
 
         # calc off-diagonal terms
-        t2 = 3 * np.einsum('ij,ijk,ijl->ikjl', r5_inv, r_vec,
-                                 r_vec, dtype=np.float32, casting='same_kind',
-                                 optimize=True)
+        natoms = self.nanoparticle.natoms
+        r5_inv = r5_inv.reshape(1, natoms * natoms, 1)
+        r_vec1 = r_vec.copy().reshape(1, natoms * natoms, 3)
+        r_vec2 = np.swapaxes(r_vec1, 0, 2)
+        t2 = ne.evaluate("3 * r5_inv * r_vec1 * r_vec2")
+        t2 = t2.reshape(3, natoms, natoms, 3)
+        t2 = np.swapaxes(t2, 0, 1)
+
         # calc diagonal terms
         t2[:,0,:,0] -= r3_inv
         t2[:,1,:,1] -= r3_inv
@@ -307,7 +314,8 @@ class CalcMethodBase(object):
         """
 
         natoms = self.nanoparticle.natoms
-        pol_inv = 1 / self.nanoparticle.atomic_polarizabilities(omega)
+        pol = self.nanoparticle.atomic_polarizabilities(omega)
+        pol_inv = ne.evaluate("1/pol")
 
         # initialize the A-matrix and get off-diagonal terms for
         # origin cell
@@ -493,6 +501,7 @@ class CalcMethodBase(object):
         # print iterations and residuals to logfile
         self._iteration = 0 
         self._itertime = time.perf_counter()
+
         def report(xk):
             self._iteration += 1
             if self._iteration%10 == 0:
@@ -502,16 +511,17 @@ class CalcMethodBase(object):
                     self.log(f'Iter: {self._iteration//10:>4d}, Err: {xk:8.2e},'
                              f' {ellapsed_time:6.3f} s')
         self._old_solution_vector = None
+
         def report2(xk):
             self._iteration += 1
             self._new_solution_vector = xk.copy()
-#            if self._iteration%10 == 0:
             if self._iteration > 1:
                 ellapsed_time = time.perf_counter() - self._itertime
                 self._itertime = time.perf_counter()
-                error = (np.abs(self._old_solution_vector
-                               - self._new_solution_vector).sum()
-                        / (self.nanoparticle.natoms * 3))
+                old = self._old_solution_vector
+                new = self._new_solution_vector
+                denom = self.nanoparticle.natoms * 3
+                error = (ne.evaluate("sum(abs(old - new))") / denom).real
                 if self.verbose > 1 or self.debug:
                     self.log(f'Iter: {self._iteration:>4d}, Err: {error:8.2e},'
                              f' {ellapsed_time:6.3f} s')
